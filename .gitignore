@@ -1,0 +1,76 @@
+# ============================================================
+# Python Trading Bot — .gitignore
+# ============================================================
+
+# ---- Environment & secrets ----------------------------------
+# Never commit real credentials. Keep .env.example (the safe template) tracked.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# ---- Virtual environment ------------------------------------
+.venv/
+venv/
+env/
+ENV/
+
+# ---- Python caches & build artifacts ------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+.eggs/
+build/
+dist/
+develop-eggs/
+parts/
+sdist/
+wheels/
+.mypy_cache/
+.pyright/
+.ruff_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+
+# ---- Runtime data --------------------------------------------
+# SQLite database containing live trading state.
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# ---- Logs & reports ------------------------------------------
+logs/
+*.log
+*.log.*
+reports/
+output/
+tmp/
+
+# ---- IDE / editor --------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.pyc-e
+
+# ---- OS ------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Jupyter / scratch files ---------------------------------
+.ipynb_checkpoints/
+Untitled-*.html
+scratch/
