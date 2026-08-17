@@ -49,6 +49,12 @@ htmlcov/
 *.sqlite
 *.sqlite3
 
+# Explicit trade_post DB artifacts to ignore
+trade_post.db
+trade_post.db-
+trade_post.db-shm
+trade_post.db-wal
+
 # ---- Logs & reports ------------------------------------------
 logs/
 *.log
