@@ -28,8 +28,7 @@ def resolve_money_type(engine: AsyncEngine) -> str:
 
 
 _SCHEMA_SQL: tuple[str, ...] = (
-    "CREATE TABLE IF NOT EXISTS schema_migrations "
-    "(id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)",
     "CREATE TABLE IF NOT EXISTS users ("
     " id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, email TEXT,"
     " password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'viewer',"
@@ -136,8 +135,7 @@ VERSIONED_MIGRATIONS: list[tuple[str, list[str]]] = [
             " balance_after {money} NOT NULL, type TEXT NOT NULL,"
             " reference TEXT NOT NULL, created_at TEXT NOT NULL,"
             " metadata TEXT NOT NULL DEFAULT '{{}}')",
-            "CREATE INDEX IF NOT EXISTS idx_ledger_account_ts "
-            "ON ledger_entries(account_id, created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_ledger_account_ts ON ledger_entries(account_id, created_at)",
             "CREATE TABLE IF NOT EXISTS positions ("
             " id TEXT PRIMARY KEY, symbol TEXT NOT NULL,"
             " side TEXT NOT NULL DEFAULT 'long', quantity {money} NOT NULL,"
@@ -152,8 +150,7 @@ VERSIONED_MIGRATIONS: list[tuple[str, list[str]]] = [
     (
         "0004_ai_schema_version",
         [
-            "ALTER TABLE ai_decisions "
-            "ADD COLUMN schema_version TEXT NOT NULL DEFAULT 'v1'",
+            "ALTER TABLE ai_decisions ADD COLUMN schema_version TEXT NOT NULL DEFAULT 'v1'",
         ],
     ),
 ]

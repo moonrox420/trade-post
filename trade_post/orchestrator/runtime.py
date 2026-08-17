@@ -333,6 +333,7 @@ class Orchestrator:
                         raw_output=decision.raw_output,
                         model=decision.model,
                         prompt_version=decision.prompt_version,
+                        schema_version=decision.schema_version,
                         validated=decision.validated,
                         validation_errors=decision.validation_errors,
                         timestamp=decision.timestamp,
@@ -340,7 +341,7 @@ class Orchestrator:
                     )
                 if decision.signal is SignalSide.FLAT:
                     continue
-                baseline_qty = Decimal(str(decision.raw_output.get("amount", 0.0)))
+                baseline_qty = Decimal(str(decision.raw_output.get("quantity", 0.0)))
                 intent = self.brain.to_intent(decision, last_price=snap.last_price, quantity=baseline_qty)
                 risk_decision = await self.risk.validate(intent, snap, portfolio)
                 if not risk_decision.approved:

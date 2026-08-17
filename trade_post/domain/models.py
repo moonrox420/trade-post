@@ -348,6 +348,7 @@ class ReconciliationOutcome(str, Enum):
 
 class ReconciliationResult(BaseModel):
     """Deterministic outcome of a reconciliation run."""
+
     model_config = ConfigDict(frozen=True)
 
     id: str = Field(default_factory=_new_id)

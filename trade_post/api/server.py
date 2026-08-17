@@ -217,9 +217,7 @@ async def _check_login_rate_limit(repo: Repository, ip: str, settings: Settings)
 
 def _strip_ai_fields(rows: list[dict]) -> list[dict]:
     """Remove AI model/provider fields from decision rows before API response."""
-    return [
-        {k: v for k, v in row.items() if k not in _AI_REDACT_FIELDS} for row in rows
-    ]
+    return [{k: v for k, v in row.items() if k not in _AI_REDACT_FIELDS} for row in rows]
 
 
 # --- Application factory -------------------------------------------------
@@ -325,10 +323,7 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
             reason = None
             if not ok:
                 reason = "credentials"
-            elif (
-                user is not None
-                and (user.get("account_status") or "active") != "active"
-            ):
+            elif user is not None and (user.get("account_status") or "active") != "active":
                 reason = "disabled"
             else:
                 if user is not None:
@@ -517,9 +512,7 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
             "kill_reason": state.kill_reason,
             "circuit_open": state.circuit_open,
             "failures_in_window": state.failures_in_window,
-            "starting_equity": (
-                str(state.starting_equity.amount) if state.starting_equity else None
-            ),
+            "starting_equity": (str(state.starting_equity.amount) if state.starting_equity else None),
         }
 
     # ---- OPERATOR CONTROLS (CSRF + operator/admin role) ----
