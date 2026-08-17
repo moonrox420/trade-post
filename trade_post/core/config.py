@@ -96,9 +96,7 @@ class Settings(BaseSettings):
 
     market_data_poll_sec: int = Field(default=15, ge=1, le=600)
     market_data_ohlcv_limit: int = Field(default=200, ge=20, le=5000)
-    subscribed_symbols: list[str] = Field(
-        default_factory=lambda: ["BTC/USDT", "ETH/USDT"]
-    )
+    subscribed_symbols: list[str] = Field(default_factory=lambda: ["BTC/USDT", "ETH/USDT"])
 
     session_secret: str = Field(default_factory=lambda: secrets.token_urlsafe(48))
     session_ttl_minutes: int = Field(default=480, ge=1, le=43_200)
@@ -133,9 +131,7 @@ class Settings(BaseSettings):
     def _validate_live_mode_safety(self) -> Self:
         if self.trading_mode is TradingMode.LIVE:
             if not self.exchange_api_key or not self.exchange_api_secret:
-                raise ValueError(
-                    "Live trading requires EXCHANGE_API_KEY and EXCHANGE_API_SECRET"
-                )
+                raise ValueError("Live trading requires EXCHANGE_API_KEY and EXCHANGE_API_SECRET")
         return self
 
     @property

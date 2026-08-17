@@ -59,29 +59,29 @@ class Money(BaseModel):
     currency: str = "USDT"
 
     @classmethod
-    def zero(cls, currency: str = "USDT") -> "Money":
+    def zero(cls, currency: str = "USDT") -> Money:
         return cls(amount=Decimal("0"), currency=currency)
 
-    def __add__(self, other: "Money") -> "Money":
+    def __add__(self, other: Money) -> Money:
         self._assert_same_currency(other)
         return Money(amount=self.amount + other.amount, currency=self.currency)
 
-    def __sub__(self, other: "Money") -> "Money":
+    def __sub__(self, other: Money) -> Money:
         self._assert_same_currency(other)
         return Money(amount=self.amount - other.amount, currency=self.currency)
 
-    def __mul__(self, factor) -> "Money":
+    def __mul__(self, factor) -> Money:
         return Money(amount=(self.amount * Decimal(str(factor))), currency=self.currency)
 
-    def __lt__(self, other: "Money") -> bool:
+    def __lt__(self, other: Money) -> bool:
         self._assert_same_currency(other)
         return self.amount < other.amount
 
-    def __le__(self, other: "Money") -> bool:
+    def __le__(self, other: Money) -> bool:
         self._assert_same_currency(other)
         return self.amount <= other.amount
 
-    def _assert_same_currency(self, other: "Money") -> None:
+    def _assert_same_currency(self, other: Money) -> None:
         if self.currency != other.currency:
             raise ValueError(f"Currency mismatch: {self.currency} vs {other.currency}")
 
@@ -244,6 +244,7 @@ class AIDecision(BaseModel):
     raw_output: dict
     model: str
     prompt_version: str
+    schema_version: str = "v1"
     validated: bool
     validation_errors: list = Field(default_factory=list)
     timestamp: datetime = Field(default_factory=_now_utc)
@@ -310,6 +311,54 @@ class Session(BaseModel):
     ip: str
     user_agent: str
     revoked: bool = False
+
+
+class LedgerEntryType(str, Enum):
+    """Categorisation of a cash-flow line on the money ledger."""
+
+    TRADE = "trade"
+    FEE = "fee"
+    DEPOSIT = "deposit"
+    WITHDRAWAL = "withdrawal"
+    ADJUSTMENT = "adjustment"
+
+
+class LedgerEntry(BaseModel):
+    """An auditable, immutable cash-flow line. Money is always ``Decimal``."""
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str = Field(default_factory=_new_id)
+    account_id: str
+    delta: Decimal  # signed: positive credits, negative debits the account
+    currency: str = "USDT"
+    balance_after: Decimal
+    type: LedgerEntryType = LedgerEntryType.TRADE
+    reference: str
+    created_at: datetime = Field(default_factory=_now_utc)
+    metadata: dict = Field(default_factory=dict)
+
+
+class ReconciliationOutcome(str, Enum):
+    """Whether a reconciliation run satisfied the ledger equation."""
+
+    PASS = "pass"
+    FAIL = "fail"
+
+
+class ReconciliationResult(BaseModel):
+    """Deterministic outcome of a reconciliation run."""
+    model_config = ConfigDict(frozen=True)
+
+    id: str = Field(default_factory=_new_id)
+    run_started_at: datetime = Field(default_factory=_now_utc)
+    run_ended_at: datetime | None = None
+    outcome: ReconciliationOutcome
+    ledger_balance: Decimal = Decimal("0")
+    expected_balance: Decimal = Decimal("0")
+    tolerance: Decimal = Decimal("0.01")
+    mismatches: list = Field(default_factory=list)
+    passed: bool = False
 
 
 def idempotency_key_for(

@@ -10,12 +10,18 @@ AI model/provider details are stripped from every API response.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from fastapi import (
-    Depends, FastAPI, HTTPException, Request, Response, WebSocket,
-    WebSocketDisconnect, status,
+    Depends,
+    FastAPI,
+    HTTPException,
+    Request,
+    Response,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
 )
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
@@ -26,10 +32,21 @@ from ..domain.models import Event, EventSeverity
 from ..persistence.database import get_database
 from ..persistence.repository import Repository
 from ..security.auth import (
-    CurrentUser, _client_ip, csrf_cookie_name, hash_password,
-    new_csrf_token, new_session_id, new_user_id, public_identity,
-    require_admin, require_csrf, require_operator, resolve_session,
-    session_expiry, set_csrf_cookie, verify_password,
+    CurrentUser,
+    _client_ip,
+    csrf_cookie_name,
+    hash_password,
+    new_csrf_token,
+    new_session_id,
+    new_user_id,
+    public_identity,
+    require_admin,
+    require_csrf,
+    require_operator,
+    resolve_session,
+    session_expiry,
+    set_csrf_cookie,
+    verify_password,
 )
 
 log = get_logger(__name__)
@@ -118,7 +135,7 @@ def _set_session_cookie(response: Response, settings: Settings, sid: str) -> Non
         value=sid,
         httponly=True,
         secure=secure,
-        samesite="Strict" if secure else "Lax",
+        samesite="strict" if secure else "lax",
         max_age=settings.session_ttl_minutes * 60,
         path="/",
     )
@@ -129,7 +146,7 @@ def _clear_session_cookie(response: Response, settings: Settings) -> None:
         key=COOKIE_NAME,
         httponly=True,
         secure=settings.app_env == "production",
-        samesite="Strict" if settings.app_env == "production" else "Lax",
+        samesite="strict" if settings.app_env == "production" else "lax",
         path="/",
     )
 
@@ -138,7 +155,7 @@ def _clear_csrf_cookie(response: Response, settings: Settings) -> None:
     response.delete_cookie(
         key=csrf_cookie_name(settings),
         secure=settings.app_env == "production",
-        samesite="Strict" if settings.app_env == "production" else "Lax",
+        samesite="strict" if settings.app_env == "production" else "lax",
         path="/",
     )
 
@@ -153,13 +170,15 @@ async def _record_auth_event(
     with trace_context() as trace_id:
         db = get_database()
         async with db.session() as session:
-            await Repository(session).insert_event(Event(
-                type=event_type,
-                severity=severity,
-                actor=actor,
-                payload=payload,
-                trace_id=trace_id,
-            ))
+            await Repository(session).insert_event(
+                Event(
+                    type=event_type,
+                    severity=severity,
+                    actor=actor,
+                    payload=payload,
+                    trace_id=trace_id,
+                )
+            )
 
 
 def _security_headers(response: Response, settings: Settings) -> None:
@@ -186,7 +205,7 @@ def _security_headers(response: Response, settings: Settings) -> None:
 
 async def _check_login_rate_limit(repo: Repository, ip: str, settings: Settings) -> None:
     """IP-based brute-force throttle using existing settings. Never permanent."""
-    window = datetime.utcnow() - timedelta(minutes=settings.login_lockout_minutes)
+    window = datetime.now(UTC) - timedelta(minutes=settings.login_lockout_minutes)
     attempts = await repo.count_failed_attempts_by_ip(ip, window)
     if attempts >= settings.login_max_attempts_per_ip:
         log.warning("Login rate limit hit for ip=%s", ip)
@@ -199,11 +218,12 @@ async def _check_login_rate_limit(repo: Repository, ip: str, settings: Settings)
 def _strip_ai_fields(rows: list[dict]) -> list[dict]:
     """Remove AI model/provider fields from decision rows before API response."""
     return [
-        {k: v for k, v in row.items() if k not in _AI_REDACT_FIELDS}
-        for row in rows
+        {k: v for k, v in row.items() if k not in _AI_REDACT_FIELDS} for row in rows
     ]
 
+
 # --- Application factory -------------------------------------------------
+
 
 def create_app(settings: Settings | None = None, *, full_startup: bool = True) -> FastAPI:
     """Build the FastAPI application with complete authentication/authorization.
@@ -275,6 +295,7 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
             username=resolved["username"],
             role=resolved["role"],
         )
+
     # ---- LOGIN ----
     @app.post("/api/v1/auth/login", response_model=LoginResponse)
     async def login(body: LoginRequest, request: Request, response: Response) -> LoginResponse:
@@ -304,43 +325,58 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
             reason = None
             if not ok:
                 reason = "credentials"
-            elif (user.get("account_status") or "active") != "active":
+            elif (
+                user is not None
+                and (user.get("account_status") or "active") != "active"
+            ):
                 reason = "disabled"
             else:
-                locked_until = user.get("locked_until")
-                if locked_until:
-                    try:
-                        if datetime.fromisoformat(locked_until) > datetime.utcnow():
-                            reason = "locked"
-                    except ValueError:
-                        reason = None
+                if user is not None:
+                    locked_until = user.get("locked_until")
+                    if locked_until:
+                        try:
+                            if datetime.fromisoformat(locked_until) > datetime.now(UTC):
+                                reason = "locked"
+                        except ValueError:
+                            reason = None
             if reason is not None:
                 failure = True
-                await Repository(session).insert_event(Event(
-                    type="login_failure",
-                    severity=EventSeverity.WARNING,
-                    actor=body.username,
-                    payload={"ip": ip, "reason": reason},
-                ))
+                await Repository(session).insert_event(
+                    Event(
+                        type="login_failure",
+                        severity=EventSeverity.WARNING,
+                        actor=body.username,
+                        payload={"ip": ip, "reason": reason},
+                    )
+                )
             else:
+                assert user is not None
                 sid = new_session_id()
-                now = datetime.utcnow()
+                now = datetime.now(UTC)
                 await repo.insert_session(
-                    id=sid, user_id=user["id"], issued_at=now.isoformat(),
+                    id=sid,
+                    user_id=user["id"],
+                    issued_at=now.isoformat(),
                     expires_at=session_expiry(settings, now).isoformat(),
-                    ip=ip, user_agent=(request.headers.get("user-agent") or "")[:512],
+                    ip=ip,
+                    user_agent=(request.headers.get("user-agent") or "")[:512],
                 )
                 await repo.reset_failed_login(user["id"])
                 await repo.update_user_login(user["id"], now.isoformat())
                 identity = LoginResponse(username=user["username"], role=user["role"])
         if failure:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials.")
+        assert identity is not None
         _set_session_cookie(response, settings, sid)
         set_csrf_cookie(response, settings, new_csrf_token())
         await _record_auth_event(
-            "login_success", identity.username, {"ip": ip}, EventSeverity.INFO,
+            "login_success",
+            identity.username,
+            {"ip": ip},
+            EventSeverity.INFO,
         )
         return identity
+
     # ---- LOGOUT ----
     @app.post("/api/v1/auth/logout")
     async def logout(request: Request, response: Response) -> dict:
@@ -378,7 +414,10 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
             full = await repo.get_user_by_id(user["user_id"])
             if not full or not verify_password(body.current_password, full["password_hash"]):
                 await _record_auth_event(
-                    "password_change_failure", user["username"], {}, EventSeverity.WARNING,
+                    "password_change_failure",
+                    user["username"],
+                    {},
+                    EventSeverity.WARNING,
                 )
                 raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Current password is incorrect.")
             await repo.update_user_password(user["user_id"], hash_password(body.new_password, settings))
@@ -406,9 +445,15 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
             "timestamp": ts,
             "positions": [],
             "orders": [
-                {"id": o.id, "symbol": o.symbol, "side": o.side.value,
-                 "quantity": str(o.quantity), "filled": str(o.filled_quantity),
-                 "status": o.status.value, "created_at": o.created_at.isoformat()}
+                {
+                    "id": o.id,
+                    "symbol": o.symbol,
+                    "side": o.side.value,
+                    "quantity": str(o.quantity),
+                    "filled": str(o.filled_quantity),
+                    "status": o.status.value,
+                    "created_at": o.created_at.isoformat(),
+                }
                 for o in orders
             ],
         }
@@ -418,23 +463,39 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
         db = get_database()
         async with db.session() as session:
             orders = await Repository(session).list_recent_orders(50)
-        return {"orders": [
-            {"id": o.id, "symbol": o.symbol, "side": o.side.value,
-             "quantity": str(o.quantity), "filled": str(o.filled_quantity),
-             "status": o.status.value, "created_at": o.created_at.isoformat()}
-            for o in orders
-        ]}
+        return {
+            "orders": [
+                {
+                    "id": o.id,
+                    "symbol": o.symbol,
+                    "side": o.side.value,
+                    "quantity": str(o.quantity),
+                    "filled": str(o.filled_quantity),
+                    "status": o.status.value,
+                    "created_at": o.created_at.isoformat(),
+                }
+                for o in orders
+            ]
+        }
 
     @app.get("/api/v1/events")
     async def events_endpoint(user: dict = Depends(CurrentUser(required=True))) -> dict:
         db = get_database()
         async with db.session() as session:
             events = await Repository(session).list_recent_events(100)
-        return {"events": [
-            {"id": e.id, "timestamp": e.timestamp.isoformat(), "type": e.type,
-             "severity": e.severity.value, "actor": e.actor, "payload": e.payload}
-            for e in events
-        ]}
+        return {
+            "events": [
+                {
+                    "id": e.id,
+                    "timestamp": e.timestamp.isoformat(),
+                    "type": e.type,
+                    "severity": e.severity.value,
+                    "actor": e.actor,
+                    "payload": e.payload,
+                }
+                for e in events
+            ]
+        }
 
     @app.get("/api/v1/ai-decisions")
     async def ai_decisions(user: dict = Depends(CurrentUser(required=True))) -> dict:
@@ -452,11 +513,15 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
         if not state:
             return {"killed": False, "circuit_open": False}
         return {
-            "killed": state.killed, "kill_reason": state.kill_reason,
+            "killed": state.killed,
+            "kill_reason": state.kill_reason,
             "circuit_open": state.circuit_open,
             "failures_in_window": state.failures_in_window,
-            "starting_equity": str(state.starting_equity.amount) if state.starting_equity else None,
+            "starting_equity": (
+                str(state.starting_equity.amount) if state.starting_equity else None
+            ),
         }
+
     # ---- OPERATOR CONTROLS (CSRF + operator/admin role) ----
     @app.post("/api/v1/kill")
     async def kill_switch(request: Request, user: dict = Depends(require_operator)) -> dict:
@@ -465,8 +530,10 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
         orch = request.app.state.orchestrator
         await orch.risk.kill(f"Requested by {user['username']}")
         await _record_auth_event(
-            "kill_switch_requested", user["username"],
-            {"trace_id": new_trace_id()}, EventSeverity.CRITICAL,
+            "kill_switch_requested",
+            user["username"],
+            {"trace_id": new_trace_id()},
+            EventSeverity.CRITICAL,
         )
         return {"ok": True, "message": "Kill switch activated."}
 
@@ -485,7 +552,9 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
         return {"ok": True, "autonomous": False}
 
     @app.post("/api/v1/subscribe")
-    async def subscribe(body: SubscribeRequest, request: Request, user: dict = Depends(require_operator)) -> dict:
+    async def subscribe(
+        body: SubscribeRequest, request: Request, user: dict = Depends(require_operator)
+    ) -> dict:
         """Subscribe to market data feeds. Operator/admin only."""
         await require_csrf(request)
         orch = request.app.state.orchestrator
@@ -493,7 +562,9 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
         return {"ok": True, "subscribed": orch.settings.subscribed_symbols, "added": added}
 
     @app.post("/api/v1/unsubscribe")
-    async def unsubscribe(body: SubscribeRequest, request: Request, user: dict = Depends(require_operator)) -> dict:
+    async def unsubscribe(
+        body: SubscribeRequest, request: Request, user: dict = Depends(require_operator)
+    ) -> dict:
         """Unsubscribe from market data feeds. Operator/admin only."""
         await require_csrf(request)
         orch = request.app.state.orchestrator
@@ -505,6 +576,7 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
         """Trigger on-demand AI analysis. Operator/admin only. No AI details exposed."""
         await require_csrf(request)
         return await request.app.state.orchestrator.run_single_analysis(user["username"])
+
     # ---- ADMIN USER MANAGEMENT (CSRF + admin only) ----
     @app.get("/api/v1/admin/users")
     async def list_users(user: dict = Depends(require_admin)) -> dict:
@@ -515,7 +587,9 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
         return {"users": users}
 
     @app.post("/api/v1/admin/users")
-    async def create_user(body: CreateUserRequest, request: Request, user: dict = Depends(require_admin)) -> dict:
+    async def create_user(
+        body: CreateUserRequest, request: Request, user: dict = Depends(require_admin)
+    ) -> dict:
         """Create a user. Admin only. No public self-registration."""
         await require_csrf(request)
         db = get_database()
@@ -525,18 +599,28 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
                 raise HTTPException(status.HTTP_409_CONFLICT, detail="Username already exists.")
             uid = new_user_id()
             await repo.insert_user(
-                id=uid, username=body.username, email=body.email,
+                id=uid,
+                username=body.username,
+                email=body.email,
                 password_hash=hash_password(body.password, settings),
-                role=body.role, created_at=datetime.utcnow().isoformat(),
+                role=body.role,
+                created_at=datetime.now(UTC).isoformat(),
             )
         await _record_auth_event(
-            "account_created", user["username"],
-            {"new_user": body.username, "role": body.role}, EventSeverity.INFO,
+            "account_created",
+            user["username"],
+            {"new_user": body.username, "role": body.role},
+            EventSeverity.INFO,
         )
         return {"ok": True, "id": uid, "username": body.username, "role": body.role}
 
     @app.patch("/api/v1/admin/users/{user_id}")
-    async def update_user(user_id: str, body: UpdateUserRequest, request: Request, user: dict = Depends(require_admin)) -> dict:
+    async def update_user(
+        user_id: str,
+        body: UpdateUserRequest,
+        request: Request,
+        user: dict = Depends(require_admin),
+    ) -> dict:
         """Update a user's role/status. Admin only."""
         await require_csrf(request)
         db = get_database()
@@ -545,10 +629,13 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
             if not await repo.get_user_by_id(user_id):
                 raise HTTPException(status.HTTP_404_NOT_FOUND, detail="User not found.")
             await repo.update_user_role_status(
-                user_id, role=body.role, account_status=body.account_status,
+                user_id,
+                role=body.role,
+                account_status=body.account_status,
             )
         await _record_auth_event(
-            "administrative_action", user["username"],
+            "administrative_action",
+            user["username"],
             {"target": user_id, "role": body.role, "status": body.account_status},
             EventSeverity.INFO,
         )
@@ -559,7 +646,10 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
         """Delete a user and revoke sessions. Admin only. Cannot self-delete."""
         await require_csrf(request)
         if user_id == user["user_id"]:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Cannot delete your own account while logged in.")
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="Cannot delete your own account while logged in.",
+            )
         db = get_database()
         async with db.session() as session:
             repo = Repository(session)
@@ -569,10 +659,13 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
             await repo.revoke_all_sessions_for_user(user_id)
             await repo.delete_user(user_id)
         await _record_auth_event(
-            "account_deleted", user["username"],
-            {"target": target["username"]}, EventSeverity.WARNING,
+            "account_deleted",
+            user["username"],
+            {"target": target["username"]},
+            EventSeverity.WARNING,
         )
         return {"ok": True}
+
     # ---- AUTHENTICATED WEBSOCKET: /ws/control ----
     @app.websocket("/ws/control")
     async def ws_control(websocket: WebSocket) -> None:
@@ -585,7 +678,7 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
         """
         sid = websocket.cookies.get(COOKIE_NAME)
         resolved = await resolve_session(sid) if sid else None
-        if resolved is None:
+        if resolved is None or sid is None:
             await websocket.close(code=4001, reason="Not authenticated")
             return
         await websocket.accept()
@@ -614,19 +707,24 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
                         db = get_database()
                         async with db.session() as session:
                             equity = await Repository(session).list_recent_equity(limit=1)
-                        await websocket.send_json({
-                            "type": "state", "equity": equity,
-                            "autonomous": orch.is_autonomous_running,
-                            "trace": trace_id,
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "state",
+                                "equity": equity,
+                                "autonomous": orch.is_autonomous_running,
+                                "trace": trace_id,
+                            }
+                        )
                     elif cmd == "KILL":
                         if role not in ("admin", "operator"):
                             await websocket.send_json({"type": "error", "error": "insufficient_role"})
                             continue
                         await orch.risk.kill(f"Requested by {username}")
                         await _record_auth_event(
-                            "kill_switch_requested", username,
-                            {"trace_id": trace_id}, EventSeverity.CRITICAL,
+                            "kill_switch_requested",
+                            username,
+                            {"trace_id": trace_id},
+                            EventSeverity.CRITICAL,
                         )
                         await websocket.send_json({"type": "ack", "cmd": "KILL", "trace": trace_id})
                     elif cmd == "START_AUTO":
@@ -634,32 +732,60 @@ def create_app(settings: Settings | None = None, *, full_startup: bool = True) -
                             await websocket.send_json({"type": "error", "error": "insufficient_role"})
                             continue
                         await orch.start_autonomous(username)
-                        await websocket.send_json({"type": "system_status", "autonomous": True, "trace": trace_id})
+                        await websocket.send_json(
+                            {
+                                "type": "system_status",
+                                "autonomous": True,
+                                "trace": trace_id,
+                            }
+                        )
                     elif cmd == "STOP_AUTO":
                         if role not in ("admin", "operator"):
                             await websocket.send_json({"type": "error", "error": "insufficient_role"})
                             continue
                         await orch.stop_autonomous(username)
-                        await websocket.send_json({"type": "system_status", "autonomous": False, "trace": trace_id})
+                        await websocket.send_json(
+                            {
+                                "type": "system_status",
+                                "autonomous": False,
+                                "trace": trace_id,
+                            }
+                        )
                     elif cmd == "ANALYZE":
                         if role not in ("admin", "operator"):
                             await websocket.send_json({"type": "error", "error": "insufficient_role"})
                             continue
                         result = await orch.run_single_analysis(username)
-                        await websocket.send_json({"type": "ack", "cmd": "ANALYZE", "result": result, "trace": trace_id})
+                        await websocket.send_json(
+                            {
+                                "type": "ack",
+                                "cmd": "ANALYZE",
+                                "result": result,
+                                "trace": trace_id,
+                            }
+                        )
                     elif cmd in ("SUBSCRIBE", "UNSUBSCRIBE"):
                         if role not in ("admin", "operator"):
                             await websocket.send_json({"type": "error", "error": "insufficient_role"})
                             continue
-                        for sym in (msg.get("symbols") or []):
+                        for sym in msg.get("symbols") or []:
                             (orch.subscribe_symbol if cmd == "SUBSCRIBE" else orch.unsubscribe_symbol)(sym)
-                        await websocket.send_json({
-                            "type": "ack", "cmd": cmd,
-                            "subscribed": orch.settings.subscribed_symbols,
-                            "trace": trace_id,
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "ack",
+                                "cmd": cmd,
+                                "subscribed": orch.settings.subscribed_symbols,
+                                "trace": trace_id,
+                            }
+                        )
                     else:
-                        await websocket.send_json({"type": "error", "error": f"unknown_cmd: {cmd}", "trace": trace_id})
+                        await websocket.send_json(
+                            {
+                                "type": "error",
+                                "error": f"unknown_cmd: {cmd}",
+                                "trace": trace_id,
+                            }
+                        )
         except WebSocketDisconnect:
             log.info("ws_control disconnected user=%s", username)
         except Exception as exc:  # noqa: BLE001

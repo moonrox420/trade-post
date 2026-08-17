@@ -24,6 +24,7 @@ from ..market.service import MarketDataService
 from ..persistence.database import init_database
 from ..persistence.migrations import run_migrations
 from ..persistence.repository import Repository
+from ..reconciliation.service import ReconciliationService
 from ..risk.engine import RiskEngine
 from ..security.auth import hash_password
 from ..strategy.signals import SignalEngine
@@ -60,6 +61,7 @@ class Orchestrator:
         self._settings = settings
         self._tasks = TaskRegistry()
         self._db = init_database(settings)
+        self.reconciliation: ReconciliationService | None = None
         self.market = MarketDataService(settings)
         self.risk = RiskEngine(settings)
         self.ollama = OllamaClient(settings)
@@ -86,6 +88,7 @@ class Orchestrator:
         """
         await self._db.connect()
         await run_migrations(self._db.engine)
+        self.reconciliation = ReconciliationService(self._db.engine)
         async with self._db.session() as s:
             repo = Repository(s)
             self.risk.bind_database(self._db)
@@ -108,8 +111,8 @@ class Orchestrator:
         self._tasks.spawn("portfolio_snap", self._loop_portfolio_snapshot())
         self._tasks.spawn("ai_scan", self._loop_ai_scan())
         self._tasks.spawn("orphan_reconcile", self._loop_orphan_reconcile())
+        self._tasks.spawn("ledger_reconcile", self._loop_ledger_reconcile())
         log.info("Orchestrator started")
-
 
     async def shutdown(self) -> None:
         log.info("Orchestrator shutting down")
@@ -160,12 +163,14 @@ class Orchestrator:
             role="admin",
             created_at=datetime.now(timezone.utc).isoformat(),
         )
-        await repo.insert_event(Event(
-            type="account_created",
-            severity=EventSeverity.WARNING,
-            actor="system",
-            payload={"username": username, "role": "admin", "bootstrap": True},
-        ))
+        await repo.insert_event(
+            Event(
+                type="account_created",
+                severity=EventSeverity.WARNING,
+                actor="system",
+                payload={"username": username, "role": "admin", "bootstrap": True},
+            )
+        )
 
     @property
     def is_autonomous_running(self) -> bool:
@@ -243,19 +248,28 @@ class Orchestrator:
                     except Exception:
                         mark = p["entry_price"]
                     pnl = (mark - p["entry_price"]) * p["quantity"]
-                    positions.append(Position(
-                        symbol=sym, side=SignalSide(p["side"]), quantity=p["quantity"],
-                        entry_price=p["entry_price"], mark_price=mark,
-                        unrealized_pnl=Money(amount=pnl), leverage=p["leverage"],
-                        liquidation_price=None, opened_at=datetime.now(timezone.utc),
-                        updated_at=datetime.now(timezone.utc),
-                    ))
+                    positions.append(
+                        Position(
+                            symbol=sym,
+                            side=SignalSide(p["side"]),
+                            quantity=p["quantity"],
+                            entry_price=p["entry_price"],
+                            mark_price=mark,
+                            unrealized_pnl=Money(amount=pnl),
+                            leverage=p["leverage"],
+                            liquidation_price=None,
+                            opened_at=datetime.now(timezone.utc),
+                            updated_at=datetime.now(timezone.utc),
+                        )
+                    )
             else:
                 total_equity = Money.zero()
                 base_balances = {}
                 positions = []
             if self.risk.state.starting_equity and self.risk.state.starting_equity.amount > 0:
-                dd = (self.risk.state.starting_equity.amount - total_equity.amount) / self.risk.state.starting_equity.amount
+                dd = (
+                    self.risk.state.starting_equity.amount - total_equity.amount
+                ) / self.risk.state.starting_equity.amount
             else:
                 dd = Decimal("0")
             snap_obj = PortfolioSnapshot(
@@ -269,7 +283,6 @@ class Orchestrator:
                 drawdown_pct=dd,
             )
             await repo.insert_portfolio_snapshot(snap_obj)
-
 
     async def _loop_ai_scan(self) -> None:
         await asyncio.sleep(5)
@@ -295,23 +308,35 @@ class Orchestrator:
                 continue
             with trace_context() as trace_id:
                 signal = self.signals.from_snapshot(snap)
-                recent_lines = [f"score={e.get('score')} | {e.get('critique','')[:80]}" for e in recent_evals]
+                recent_lines = [
+                    f"score={e.get('score')} | {e.get('critique', '')[:80]}" for e in recent_evals
+                ]
                 portfolio = await self._current_portfolio(snap.last_price)
                 decision = await self.brain.decide(
-                    signal=signal, last_price=snap.last_price, spread_bps=snap.spread_bps,
-                    equity=portfolio.total_equity.amount, drawdown_pct=portfolio.drawdown_pct,
+                    signal=signal,
+                    last_price=snap.last_price,
+                    spread_bps=snap.spread_bps,
+                    equity=portfolio.total_equity.amount,
+                    drawdown_pct=portfolio.drawdown_pct,
                     available_margin=portfolio.available_margin.amount,
-                    recent_evaluations=recent_lines, trace_id=trace_id,
+                    recent_evaluations=recent_lines,
+                    trace_id=trace_id,
                 )
                 async with self._db.session() as s2:
                     await Repository(s2).insert_ai_decision(
-                        id=decision.id, symbol=decision.symbol,
-                        signal=decision.signal.value, conviction=decision.conviction,
-                        confidence=decision.confidence, rationale=decision.rationale,
-                        raw_output=decision.raw_output, model=decision.model,
+                        id=decision.id,
+                        symbol=decision.symbol,
+                        signal=decision.signal.value,
+                        conviction=decision.conviction,
+                        confidence=decision.confidence,
+                        rationale=decision.rationale,
+                        raw_output=decision.raw_output,
+                        model=decision.model,
                         prompt_version=decision.prompt_version,
-                        validated=decision.validated, validation_errors=decision.validation_errors,
-                        timestamp=decision.timestamp, trace_id=decision.trace_id,
+                        validated=decision.validated,
+                        validation_errors=decision.validation_errors,
+                        timestamp=decision.timestamp,
+                        trace_id=decision.trace_id,
                     )
                 if decision.signal is SignalSide.FLAT:
                     continue
@@ -325,14 +350,22 @@ class Orchestrator:
                     continue
                 order = await self.execution.submit(intent, portfolio, trace_id=trace_id)
                 if order is not None:
-                    log.info("ai order filled: %s %s qty=%s", order.side.value, order.symbol, order.filled_quantity)
+                    log.info(
+                        "ai order filled: %s %s qty=%s", order.side.value, order.symbol, order.filled_quantity
+                    )
 
     async def _current_portfolio(self, last_price: Decimal) -> PortfolioSnapshot:
-        if self.execution is None or not (self._settings.is_paper and not self._settings.has_exchange_credentials):
+        if self.execution is None or not (
+            self._settings.is_paper and not self._settings.has_exchange_credentials
+        ):
             return PortfolioSnapshot(
-                timestamp=datetime.now(timezone.utc), total_equity=Money.zero(),
-                available_margin=Money.zero(), positions=[], base_balances={},
-                risk_adjusted_equity=Money.zero(), margin_utilization=Decimal("0"),
+                timestamp=datetime.now(timezone.utc),
+                total_equity=Money.zero(),
+                available_margin=Money.zero(),
+                positions=[],
+                base_balances={},
+                risk_adjusted_equity=Money.zero(),
+                margin_utilization=Decimal("0"),
                 drawdown_pct=Decimal("0"),
             )
         equity = Money(amount=self.execution.paper_equity)
@@ -343,16 +376,28 @@ class Orchestrator:
             except Exception:
                 mark = p["entry_price"]
             pnl = (mark - p["entry_price"]) * p["quantity"]
-            positions.append(Position(
-                symbol=sym, side=SignalSide(p["side"]), quantity=p["quantity"],
-                entry_price=p["entry_price"], mark_price=mark, unrealized_pnl=Money(amount=pnl),
-                leverage=p["leverage"], liquidation_price=None,
-                opened_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc),
-            ))
+            positions.append(
+                Position(
+                    symbol=sym,
+                    side=SignalSide(p["side"]),
+                    quantity=p["quantity"],
+                    entry_price=p["entry_price"],
+                    mark_price=mark,
+                    unrealized_pnl=Money(amount=pnl),
+                    leverage=p["leverage"],
+                    liquidation_price=None,
+                    opened_at=datetime.now(timezone.utc),
+                    updated_at=datetime.now(timezone.utc),
+                )
+            )
         return PortfolioSnapshot(
-            timestamp=datetime.now(timezone.utc), total_equity=equity, available_margin=equity,
-            positions=positions, base_balances={k: Money(amount=v) for k, v in self.execution.paper_balances.items()},
-            risk_adjusted_equity=equity, margin_utilization=Decimal("0"),
+            timestamp=datetime.now(timezone.utc),
+            total_equity=equity,
+            available_margin=equity,
+            positions=positions,
+            base_balances={k: Money(amount=v) for k, v in self.execution.paper_balances.items()},
+            risk_adjusted_equity=equity,
+            margin_utilization=Decimal("0"),
             drawdown_pct=Decimal("0"),
         )
 
@@ -366,3 +411,20 @@ class Orchestrator:
             except Exception as exc:  # noqa: BLE001
                 log.warning("orphan reconcile error: %s", exc)
             await asyncio.sleep(120)
+
+    async def _loop_ledger_reconcile(self) -> None:
+        """Periodically run the deterministic money-ledger reconciliation (PRD M5)."""
+        while True:
+            try:
+                if self.reconciliation is None:
+                    await asyncio.sleep(60)
+                    continue
+                result = await self.reconciliation.reconcile()
+                if not result.passed:
+                    log.error(
+                        "LEDGER RECONCILIATION FAILED; see reconciliations table: %s",
+                        result.id,
+                    )
+            except Exception as exc:  # noqa: BLE001
+                log.warning("ledger reconcile error: %s", exc)
+            await asyncio.sleep(max(60, self._settings.market_data_poll_sec * 4))

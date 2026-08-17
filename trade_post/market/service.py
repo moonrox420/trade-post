@@ -50,8 +50,11 @@ class MarketDataService:
             await self._exchange.load_markets()  # type: ignore[attr-defined]
         except Exception as exc:  # noqa: BLE001
             raise ExchangeError("Failed to load markets", original=exc) from exc
-        log.info("market data service connected exchange=%s sandbox=%s",
-                self._settings.exchange_id.value, self._settings.exchange_sandbox)
+        log.info(
+            "market data service connected exchange=%s sandbox=%s",
+            self._settings.exchange_id.value,
+            self._settings.exchange_sandbox,
+        )
 
     async def disconnect(self) -> None:
         if self._exchange is not None:
@@ -61,8 +64,9 @@ class MarketDataService:
                 self._exchange = None
                 log.info("market data service disconnected")
 
-    async def get_snapshot(self, symbol: str, *, use_cache: bool = True,
-                        max_age_sec: float | None = None) -> MarketSnapshot:
+    async def get_snapshot(
+        self, symbol: str, *, use_cache: bool = True, max_age_sec: float | None = None
+    ) -> MarketSnapshot:
         max_age = max_age_sec if max_age_sec is not None else float(self._settings.max_stale_data_sec)
         if use_cache:
             cached = self._cache.get(symbol)
@@ -72,15 +76,18 @@ class MarketDataService:
             raise ExchangeError("Market service not connected")
         try:
             ticker = await self._exchange.fetch_ticker(symbol)
-            ohlcv = await self._exchange.fetch_ohlcv(symbol, timeframe="1m", limit=self._settings.market_data_ohlcv_limit)
+            ohlcv = await self._exchange.fetch_ohlcv(
+                symbol, timeframe="1m", limit=self._settings.market_data_ohlcv_limit
+            )
         except Exception as exc:  # noqa: BLE001
             raise ExchangeError(f"Failed to fetch {symbol}", symbol=symbol, original=exc) from exc
         closes = [c[4] for c in ohlcv]
         highs = [c[2] for c in ohlcv]
         lows = [c[3] for c in ohlcv]
         vols = [c[5] for c in ohlcv]
-        feats = ind.compute_all(closes, highs, lows, vols,
-                                rsi_period=14, atr_period=self._settings.atr_period)
+        feats = ind.compute_all(
+            closes, highs, lows, vols, rsi_period=14, atr_period=self._settings.atr_period
+        )
         spread_bps: Decimal | None = None
         bid = ticker.get("bid")
         ask = ticker.get("ask")

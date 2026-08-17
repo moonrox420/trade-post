@@ -12,3 +12,11 @@ src = ["trade_post", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+# B008 (Calling `Depends`/`CurrentUser` in default arguments) is the idiomatic
+# FastAPI dependency-injection pattern; it is intentionally not an error here.
+# B905 is fixed explicitly with `strict=True` at every call site.
+ignore = ["B008"]
+
+[tool.ruff.format]
+# Formatting is enforced so line-length (E501) is handled by the formatter.
+line-ending = "auto"

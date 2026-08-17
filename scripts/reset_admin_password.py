@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from trade_post.core.config import load_settings
 from trade_post.core.logging_setup import configure_logging
-from trade_post.persistence.database import get_database, init_database
+from trade_post.persistence.database import init_database
 from trade_post.persistence.migrations import run_migrations
 from trade_post.persistence.repository import Repository
 from trade_post.security.auth import hash_password

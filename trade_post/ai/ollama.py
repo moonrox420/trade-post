@@ -65,8 +65,9 @@ class OllamaClient:
             return
         self._http = httpx.AsyncClient(
             timeout=httpx.Timeout(self._settings.ollama_timeout_sec, connect=10.0),
-            limits=httpx.Limits(max_connections=self._settings.ollama_max_concurrent * 2,
-                                max_keepalive_connections=4),
+            limits=httpx.Limits(
+                max_connections=self._settings.ollama_max_concurrent * 2, max_keepalive_connections=4
+            ),
             headers={"Content-Type": "application/json"},
         )
 
@@ -100,8 +101,6 @@ class OllamaClient:
                 log.warning("Ollama model '%s' not found; available: %s", model, models)
         except Exception as exc:  # noqa: BLE001
             log.warning("Could not verify Ollama models: %s", exc)
-
-
 
     async def chat_json(
         self,
@@ -138,9 +137,7 @@ class OllamaClient:
         async with self._sem:
             while attempt <= self._settings.ollama_max_retries:
                 try:
-                    r = await self._http.post(
-                        self._settings.ollama_chat_url, json=payload, headers=headers
-                    )
+                    r = await self._http.post(self._settings.ollama_chat_url, json=payload, headers=headers)
                     if r.status_code == 404:
                         raise AIProviderError(f"Model '{chosen_model}' not found at Ollama")
                     r.raise_for_status()
@@ -159,7 +156,7 @@ class OllamaClient:
                     if attempt > self._settings.ollama_max_retries:
                         await self._breaker.record_failure()
                         raise
-                    await asyncio.sleep(min(2 ** attempt, 8))
+                    await asyncio.sleep(min(2**attempt, 8))
         if last_exc is not None:
             raise last_exc
         raise AIProviderError("AI chat failed for unknown reason")

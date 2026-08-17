@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import cast
 
@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 
 
 def _now_iso() -> str:
-    return datetime.utcnow().isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _order_dict(o: Order) -> dict:
@@ -164,16 +164,17 @@ class Repository:
             "dd": str(snap.drawdown_pct)})
 
     async def insert_ai_decision(self, *, id, symbol, signal, conviction, confidence,
-                                rationale, raw_output, model, prompt_version,
+                                rationale, raw_output, model, prompt_version, schema_version,
                                 validated, validation_errors, timestamp, trace_id) -> None:
         ts = timestamp.isoformat() if isinstance(timestamp, datetime) else str(timestamp)
         await self._s.execute(text(
             "INSERT INTO ai_decisions (id, symbol, signal, conviction, confidence, rationale,"
-            " raw_output, model, prompt_version, validated, validation_errors, timestamp, trace_id)"
-            " VALUES (:id, :sym, :sig, :conv, :conf, :r, :ro, :m, :pv, :v, :ve, :ts, :trc)"),
+            " raw_output, model, prompt_version, schema_version, validated,"
+            " validation_errors, timestamp, trace_id)"
+            " VALUES (:id, :sym, :sig, :conv, :conf, :r, :ro, :m, :pv, :sv, :v, :ve, :ts, :trc)"),
             {"id": id, "sym": symbol, "sig": signal, "conv": conviction,
             "conf": str(confidence), "r": rationale, "ro": json.dumps(raw_output),
-            "m": model, "pv": prompt_version, "v": 1 if validated else 0,
+            "m": model, "pv": prompt_version, "sv": schema_version, "v": 1 if validated else 0,
             "ve": json.dumps(validation_errors), "ts": ts, "trc": trace_id})
 
 
@@ -271,7 +272,7 @@ class Repository:
             {"id": session_id})).first()
         if not row:
             return None
-        if datetime.fromisoformat(row.expires_at) < datetime.utcnow():
+        if datetime.fromisoformat(row.expires_at) < datetime.now(UTC):
             return None
         return dict(row._mapping)
 
@@ -417,6 +418,7 @@ def _market_from_row(row) -> MarketSnapshot:
         indicators=json.loads(row.indicators or "{}"),
         source=row.source,
     )
+
 
 
 

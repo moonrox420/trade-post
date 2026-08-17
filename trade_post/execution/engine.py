@@ -31,7 +31,9 @@ log = logging.getLogger(__name__)
 
 
 class ExecutionEngine:
-    def __init__(self, settings: Settings, market: MarketDataService, risk: RiskEngine, repo: Repository) -> None:
+    def __init__(
+        self, settings: Settings, market: MarketDataService, risk: RiskEngine, repo: Repository
+    ) -> None:
         self._settings = settings
         self._market = market
         self._risk = risk
@@ -53,21 +55,32 @@ class ExecutionEngine:
     def paper_positions(self) -> dict:
         return dict(self._paper_positions)
 
-
-    async def submit(self, intent: OrderIntent, portfolio: PortfolioSnapshot,
-                     trace_id: str | None = None) -> Order | None:
+    async def submit(
+        self, intent: OrderIntent, portfolio: PortfolioSnapshot, trace_id: str | None = None
+    ) -> Order | None:
         async with self._lock:
             existing = await self._repo.get_order_by_idempotency(intent.idempotency_key)
             if existing is not None:
                 log.info("Idempotent hit for key %s -> order %s", intent.idempotency_key, existing.id)
                 return existing
             order = Order(
-                id=intent.id, intent_id=intent.id, symbol=intent.symbol, side=intent.side,
-                type=intent.type, quantity=intent.quantity, status=OrderStatus.PENDING,
-                limit_price=intent.limit_price, stop_loss_pct=intent.stop_loss_pct,
-                take_profit_pct=intent.take_profit_pct, idempotency_key=intent.idempotency_key,
-                strategy_id=intent.strategy_id, signal=intent.signal, conviction=intent.conviction,
-                rationale=intent.rationale, created_at=datetime.now(timezone.utc), trace_id=trace_id,
+                id=intent.id,
+                intent_id=intent.id,
+                symbol=intent.symbol,
+                side=intent.side,
+                type=intent.type,
+                quantity=intent.quantity,
+                status=OrderStatus.PENDING,
+                limit_price=intent.limit_price,
+                stop_loss_pct=intent.stop_loss_pct,
+                take_profit_pct=intent.take_profit_pct,
+                idempotency_key=intent.idempotency_key,
+                strategy_id=intent.strategy_id,
+                signal=intent.signal,
+                conviction=intent.conviction,
+                rationale=intent.rationale,
+                created_at=datetime.now(timezone.utc),
+                trace_id=trace_id,
             )
             await self._repo.insert_order(order)
             await self._repo.update_order_status(order.id, OrderStatus.SUBMITTED)
@@ -108,19 +121,32 @@ class ExecutionEngine:
                     await self._risk.record_failure()
                     return None
             fill = Fill(
-                order_id=order.id, exchange_order_id=order.exchange_order_id or "",
-                symbol=order.symbol, side=order.side, quantity=order.filled_quantity,
+                order_id=order.id,
+                exchange_order_id=order.exchange_order_id or "",
+                symbol=order.symbol,
+                side=order.side,
+                quantity=order.filled_quantity,
                 price=order.average_price or fill_price,
-                fee=Money(amount=Decimal("0"), currency="USDT"), liquidity="taker",
+                fee=Money(amount=Decimal("0"), currency="USDT"),
+                liquidity="taker",
             )
             await self._repo.insert_fill(fill)
             await self._repo.update_order_status(
-                order.id, OrderStatus.FILLED, exchange_order_id=order.exchange_order_id,
-                average_price=order.average_price, filled_quantity=order.filled_quantity,
+                order.id,
+                OrderStatus.FILLED,
+                exchange_order_id=order.exchange_order_id,
+                average_price=order.average_price,
+                filled_quantity=order.filled_quantity,
             )
             await self._risk.record_success()
-            log.info("EXECUTED %s %s qty=%s @ %s slip=%.3f%%",
-                     order.side.value, order.symbol, order.filled_quantity, order.average_price, slippage_pct)
+            log.info(
+                "EXECUTED %s %s qty=%s @ %s slip=%.3f%%",
+                order.side.value,
+                order.symbol,
+                order.filled_quantity,
+                order.average_price,
+                slippage_pct,
+            )
             return order
 
     def _estimate_fill_price(self, snap: MarketSnapshot, intent: OrderIntent) -> Decimal:
@@ -132,8 +158,9 @@ class ExecutionEngine:
             return snap.last_price
         return intent.limit_price or snap.last_price
 
-    def _calculate_slippage_pct(self, snap: MarketSnapshot, intent: OrderIntent,
-                                 fill_price: Decimal) -> float:
+    def _calculate_slippage_pct(
+        self, snap: MarketSnapshot, intent: OrderIntent, fill_price: Decimal
+    ) -> float:
         expected = snap.last_price
         if expected <= 0:
             return 0.0
@@ -142,15 +169,18 @@ class ExecutionEngine:
             return diff / float(expected) * 100.0
         return -diff / float(expected) * 100.0
 
-
     def _apply_paper_fill(self, order: Order) -> None:
         symbol = order.symbol
         if order.side is OrderSide.BUY:
-            self._paper_balances["USDT"] = self._paper_balances.get("USDT", Decimal("0")) - (order.filled_quantity * (order.average_price or Decimal("0")))
+            self._paper_balances["USDT"] = self._paper_balances.get("USDT", Decimal("0")) - (
+                order.filled_quantity * (order.average_price or Decimal("0"))
+            )
             base = symbol.split("/")[0]
             self._paper_balances[base] = self._paper_balances.get(base, Decimal("0")) + order.filled_quantity
         else:
-            self._paper_balances["USDT"] = self._paper_balances.get("USDT", Decimal("0")) + (order.filled_quantity * (order.average_price or Decimal("0")))
+            self._paper_balances["USDT"] = self._paper_balances.get("USDT", Decimal("0")) + (
+                order.filled_quantity * (order.average_price or Decimal("0"))
+            )
             base = symbol.split("/")[0]
             self._paper_balances[base] = self._paper_balances.get(base, Decimal("0")) - order.filled_quantity
         if order.signal is SignalSide.FLAT:
@@ -174,8 +204,11 @@ class ExecutionEngine:
         try:
             params: dict = {}
             r = await exch.create_order(
-                intent.symbol, intent.type.value, intent.side.value,
-                float(intent.quantity), float(intent.limit_price) if intent.limit_price else None,
+                intent.symbol,
+                intent.type.value,
+                intent.side.value,
+                float(intent.quantity),
+                float(intent.limit_price) if intent.limit_price else None,
                 params,
             )
             return str(r.get("id", ""))

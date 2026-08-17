@@ -16,6 +16,7 @@ from ..domain.models import (
     RiskDecision,
     RiskState,
 )
+from ..observability.metrics import metrics
 from ..persistence.database import Database
 from ..persistence.repository import Repository
 
@@ -53,6 +54,7 @@ class RiskEngine:
         self._state.killed = True
         self._state.kill_reason = reason
         self._state.killed_at = datetime.now(timezone.utc)
+        metrics.inc("trade_post_kill_switch_trips_total", 1)
         log.critical("KILL SWITCH: %s", reason)
         await self._persist()
 
@@ -77,7 +79,9 @@ class RiskEngine:
         age = (datetime.now(timezone.utc) - snap.timestamp).total_seconds()
         if age > self._settings.max_stale_data_sec:
             return False, f"Stale market data: {age:.1f}s old"
-        if snap.spread_bps is not None and snap.spread_bps > Decimal(str(self._settings.max_spread_pct * 100)):
+        if snap.spread_bps is not None and snap.spread_bps > Decimal(
+            str(self._settings.max_spread_pct * 100)
+        ):
             return False, f"Spread too wide: {snap.spread_bps}bps"
         return True, "market-ok"
 
@@ -88,16 +92,13 @@ class RiskEngine:
             return False, "Circuit breaker open"
         return True, "state-ok"
 
-
     async def validate(
         self,
         intent: OrderIntent,
         snapshot: MarketSnapshot,
         portfolio: PortfolioSnapshot,
     ) -> RiskDecision:
-        requested_notional = Money(
-            amount=intent.quantity * snapshot.last_price, currency="USDT"
-        )
+        requested_notional = Money(amount=intent.quantity * snapshot.last_price, currency="USDT")
         checks: dict = {}
 
         state_ok, state_reason = self.check_state()
@@ -118,21 +119,33 @@ class RiskEngine:
             await self._persist()
 
         if self._state.starting_equity.amount > 0:
-            dd = (self._state.starting_equity.amount - portfolio.total_equity.amount) / self._state.starting_equity.amount
+            dd = (
+                self._state.starting_equity.amount - portfolio.total_equity.amount
+            ) / self._state.starting_equity.amount
             if dd * 100 >= Decimal(str(self._settings.max_daily_loss_pct)):
-                await self.kill(f"Daily drawdown {float(dd*100):.2f}% exceeded")
-                return self._reject(intent, requested_notional, "Daily drawdown exceeded", "DRAWDOWN_BLOCKED", checks)
+                await self.kill(f"Daily drawdown {float(dd * 100):.2f}% exceeded")
+                return self._reject(
+                    intent, requested_notional, "Daily drawdown exceeded", "DRAWDOWN_BLOCKED", checks
+                )
 
         cap = portfolio.total_equity.amount * Decimal(str(self._settings.max_position_pct)) / Decimal("100")
         if requested_notional.amount > cap:
-            return self._reject(intent, requested_notional,
-                                f"Notional {requested_notional.amount} exceeds {self._settings.max_position_pct}% cap",
-                                "SIZE_BLOCKED", checks)
+            return self._reject(
+                intent,
+                requested_notional,
+                f"Notional {requested_notional.amount} exceeds {self._settings.max_position_pct}% cap",
+                "SIZE_BLOCKED",
+                checks,
+            )
 
         if requested_notional.amount > Decimal(str(self._settings.position_size_hard_cap_usd)):
-            return self._reject(intent, requested_notional,
-                                f"Notional exceeds hard cap ${self._settings.position_size_hard_cap_usd}",
-                                "HARD_CAP", checks)
+            return self._reject(
+                intent,
+                requested_notional,
+                f"Notional exceeds hard cap ${self._settings.position_size_hard_cap_usd}",
+                "HARD_CAP",
+                checks,
+            )
 
         atr = snapshot.indicators.get("atr") if snapshot.indicators else None
         if atr and float(atr) > 0 and self._settings.atr_stop_multiplier > 0:
@@ -142,24 +155,34 @@ class RiskEngine:
             if float(intent.quantity) > max_qty_by_risk:
                 new_qty = Decimal(str(round(max_qty_by_risk, 8)))
                 if new_qty <= 0:
-                    return self._reject(intent, requested_notional,
-                                        "ATR-based risk sizing yielded zero quantity",
-                                        "RISK_ZERO_QTY", checks)
+                    return self._reject(
+                        intent,
+                        requested_notional,
+                        "ATR-based risk sizing yielded zero quantity",
+                        "RISK_ZERO_QTY",
+                        checks,
+                    )
                 intent.quantity = new_qty
-                requested_notional = Money(
-                    amount=new_qty * snapshot.last_price, currency="USDT"
-                )
+                requested_notional = Money(amount=new_qty * snapshot.last_price, currency="USDT")
 
         open_count = sum(1 for p in portfolio.positions if p.symbol == intent.symbol and p.quantity > 0)
         if open_count >= self._settings.max_open_orders:
-            return self._reject(intent, requested_notional, "Max open orders reached", "ORDERS_BLOCKED", checks)
+            return self._reject(
+                intent, requested_notional, "Max open orders reached", "ORDERS_BLOCKED", checks
+            )
 
         if intent.limit_price and snapshot.last_price:
-            deviation = abs(float(snapshot.last_price - intent.limit_price) / float(snapshot.last_price)) * 100.0
+            deviation = (
+                abs(float(snapshot.last_price - intent.limit_price) / float(snapshot.last_price)) * 100.0
+            )
             if deviation > self._settings.max_price_deviation_pct:
-                return self._reject(intent, requested_notional,
-                                    f"Price deviation {deviation:.2f}% exceeds limit",
-                                    "PRICE_DEVIATION", checks)
+                return self._reject(
+                    intent,
+                    requested_notional,
+                    f"Price deviation {deviation:.2f}% exceeds limit",
+                    "PRICE_DEVIATION",
+                    checks,
+                )
 
         return RiskDecision(
             approved=True,
@@ -173,8 +196,12 @@ class RiskEngine:
     def _reject(self, intent, requested, reason, code, checks) -> RiskDecision:
         log.warning("RISK REJECT [%s] %s: %s", code, intent.symbol, reason)
         return RiskDecision(
-            approved=False, reason=reason, code=code,
-            requested_size_usd=requested, capped_size_usd=None, checks=checks,
+            approved=False,
+            reason=reason,
+            code=code,
+            requested_size_usd=requested,
+            capped_size_usd=None,
+            checks=checks,
         )
 
     async def _persist(self) -> None:

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -89,6 +89,7 @@ class Database:
     async def healthcheck(self) -> bool:
         try:
             from sqlalchemy import text
+
             async with self.session() as s:
                 await s.execute(text("SELECT 1"))
             return True

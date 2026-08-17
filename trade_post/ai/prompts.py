@@ -6,11 +6,11 @@ SYSTEM_TEMPLATE = (
     "You are a deterministic quantitative trading analyst. "
     "Respond with a SINGLE JSON object that matches the schema exactly. "
     "Do NOT include any prose, markdown, or commentary outside the JSON. "
-    "Schema: {{\"symbol\": string, \"signal\": \"LONG|SHORT|FLAT\", "
-    "\"amount\": positive number, \"order_type\": \"market|limit\", "
-    "\"conviction\": integer 1-10, \"rationale\": string <= 240 chars, "
-    "\"trailing_stop_pct\": number 0.1-5.0 or null, "
-    "\"confidence\": number 0-1}}"
+    'Schema: {{"symbol": string, "signal": "LONG|SHORT|FLAT", '
+    '"amount": positive number, "order_type": "market|limit", '
+    '"conviction": integer 1-10, "rationale": string <= 240 chars, '
+    '"trailing_stop_pct": number 0.1-5.0 or null, '
+    '"confidence": number 0-1}}'
 )
 
 USER_TEMPLATE = (

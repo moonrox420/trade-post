@@ -67,7 +67,7 @@ def macd(values, fast=12, slow=26, signal=9):
         slow_e = v * k_slow + slow_e * (1 - k_slow)
         fast_e_list.append(fast_e)
         slow_e_list.append(slow_e)
-    macd_line = [f - s for f, s in zip(fast_e_list, slow_e_list)]
+    macd_line = [f - s for f, s in zip(fast_e_list, slow_e_list, strict=True)]
     k_sig = 2.0 / (signal + 1)
     sig = macd_line[0]
     for m in macd_line[1:]:
@@ -110,9 +110,9 @@ def vwap(highs, lows, closes, volumes):
         return None
     typical = [
         (float(high) + float(low) + float(close)) / 3.0
-        for high, low, close in zip(highs, lows, closes)
+        for high, low, close in zip(highs, lows, closes, strict=True)
     ]
-    pv = sum(t * float(v) for t, v in zip(typical, volumes))
+    pv = sum(t * float(v) for t, v in zip(typical, volumes, strict=True))
     v = sum(float(x) for x in volumes)
     return pv / v
 
@@ -127,8 +127,7 @@ def realized_volatility(returns, annualization=365.0 * 24.0):
     return math.sqrt(var) * math.sqrt(annualization)
 
 
-def compute_all(closes, highs=None, lows=None, volumes=None,
-                rsi_period=14, atr_period=14, bb_period=20):
+def compute_all(closes, highs=None, lows=None, volumes=None, rsi_period=14, atr_period=14, bb_period=20):
     out = {
         "rsi": rsi(closes, rsi_period),
         "macd": macd(closes),

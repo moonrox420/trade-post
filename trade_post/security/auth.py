@@ -7,11 +7,11 @@ import hmac
 import ipaddress
 import secrets
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Protocol
 
 from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.security import HTTPBasic
 
 from ..core.config import Settings
 from ..core.errors import AuthenticationError
@@ -29,7 +29,7 @@ def hash_password(plain: str, settings: Settings) -> str:
     if not plain:
         raise AuthenticationError("Empty password")
     salt = secrets.token_bytes(16)
-    iterations = max(100_000, 2 ** settings.bcrypt_work_factor // 64)
+    iterations = max(100_000, 2**settings.bcrypt_work_factor // 64)
     digest = hashlib.pbkdf2_hmac("sha256", plain.encode("utf-8"), salt, iterations)
     return f"pbkdf2-sha256${iterations}${salt.hex()}${digest.hex()}"
 
@@ -98,6 +98,7 @@ def _client_ip(request: Request) -> str:
             pass
     return request.client.host if request.client else "unknown"
 
+
 async def resolve_session(sid: str) -> dict | None:
     """Resolve a session id to a validated user identity, or ``None``.
 
@@ -124,7 +125,7 @@ async def resolve_session(sid: str) -> dict | None:
         locked_until = user.get("locked_until")
         if locked_until:
             try:
-                if datetime.fromisoformat(locked_until) > datetime.utcnow():
+                if datetime.fromisoformat(locked_until) > datetime.now(UTC):
                     return None
             except ValueError:
                 return None
@@ -154,13 +155,16 @@ class CurrentUser:
         resolved = await resolve_session(sid)
         if resolved is None:
             if self._required:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session invalid or expired")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Session invalid or expired"
+                )
             return None
         return resolved
 
 
 def require_role(*roles: str):
     """Dependency factory that enforces role-based authorization."""
+
     async def _check(user: dict = Depends(CurrentUser(required=True))) -> dict:
         if user["role"] not in roles:
             raise HTTPException(
@@ -168,6 +172,7 @@ def require_role(*roles: str):
                 detail="Insufficient privileges",
             )
         return user
+
     return _check
 
 
@@ -230,4 +235,3 @@ def validate_csrf_token(request: Request, settings: Settings) -> None:
 
 
 http_basic = HTTPBasic(auto_error=False)
-

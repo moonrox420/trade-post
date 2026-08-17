@@ -90,9 +90,11 @@ def _revoke_session(client) -> None:
 
     asyncio.run(_run())
 
+
 # ---------------------------------------------------------------------------
 # HTTP authentication / authorization
 # ---------------------------------------------------------------------------
+
 
 def test_health_is_public(client):
     r = client.get("/health")
@@ -114,8 +116,7 @@ def test_valid_login_establishes_session(client):
 
 def test_invalid_login_is_generic(client):
     # Neither unknown username nor wrong password reveals which was wrong.
-    for creds in ({"username": "nobody", "password": "x"},
-                  {"username": "admin", "password": "wrong-pass"}):
+    for creds in ({"username": "nobody", "password": "x"}, {"username": "admin", "password": "wrong-pass"}):
         r = client.post("/api/v1/auth/login", json=creds)
         assert r.status_code == 401
         assert "Invalid credentials" in r.text
@@ -132,16 +133,26 @@ def test_logout_revokes_server_session(client):
 
 def test_me_and_reads_require_auth(client):
     assert client.get("/api/v1/me").status_code == 401
-    for path in ("/api/v1/portfolio", "/api/v1/orders", "/api/v1/events",
-                 "/api/v1/risk", "/api/v1/ai-decisions"):
+    for path in (
+        "/api/v1/portfolio",
+        "/api/v1/orders",
+        "/api/v1/events",
+        "/api/v1/risk",
+        "/api/v1/ai-decisions",
+    ):
         assert client.get(path).status_code == 401, path
 
 
 def test_authenticated_read_access(client):
     assert _login(client).status_code == 200
     assert client.get("/api/v1/me").status_code == 200
-    for path in ("/api/v1/portfolio", "/api/v1/orders", "/api/v1/events",
-                 "/api/v1/risk", "/api/v1/ai-decisions"):
+    for path in (
+        "/api/v1/portfolio",
+        "/api/v1/orders",
+        "/api/v1/events",
+        "/api/v1/risk",
+        "/api/v1/ai-decisions",
+    ):
         assert client.get(path).status_code == 200, path
 
 
@@ -162,10 +173,8 @@ def test_csrf_required_for_state_changes(client):
 def test_brute_force_rate_limit(client):
     # login_max_attempts_per_ip=3: 3 failures allowed, the 4th is throttled.
     for _ in range(3):
-        client.post("/api/v1/auth/login",
-                    json={"username": "admin", "password": "bad-pass"})
-    r = client.post("/api/v1/auth/login",
-                    json={"username": "admin", "password": ADMIN_PASSWORD})
+        client.post("/api/v1/auth/login", json={"username": "admin", "password": "bad-pass"})
+    r = client.post("/api/v1/auth/login", json={"username": "admin", "password": ADMIN_PASSWORD})
     assert r.status_code == 429
 
 
@@ -173,9 +182,11 @@ def test_role_authorization(client):
     assert _login(client).status_code == 200  # admin
     csrf = _csrf_headers(client)
     for name, role in (("viewer1", "viewer"), ("op1", "operator")):
-        r = client.post("/api/v1/admin/users",
-                        json={"username": name, "password": "pass-1234-5678", "role": role},
-                        headers=csrf)
+        r = client.post(
+            "/api/v1/admin/users",
+            json={"username": name, "password": "pass-1234-5678", "role": role},
+            headers=csrf,
+        )
         assert r.status_code == 200, r.text
     assert client.get("/api/v1/admin/users").status_code == 200
 
@@ -206,9 +217,11 @@ def test_admin_list_users_never_exposes_password(client):
     for u in r.json()["users"]:
         assert "password" not in u and "hash" not in u
 
+
 # ---------------------------------------------------------------------------
 # WebSocket authentication + AI model/provider privacy
 # ---------------------------------------------------------------------------
+
 
 def test_websocket_rejects_unauthenticated(client):
     # Server closes the un-accepted handshake with code 4001 -> WebSocketDisconnect.
@@ -229,9 +242,11 @@ def test_websocket_authorized_ping(client):
 def test_websocket_enforces_role(client):
     assert _login(client).status_code == 200  # admin
     csrf = _csrf_headers(client)
-    client.post("/api/v1/admin/users",
-                json={"username": "viewer1", "password": "pass-1234-5678", "role": "viewer"},
-                headers=csrf)
+    client.post(
+        "/api/v1/admin/users",
+        json={"username": "viewer1", "password": "pass-1234-5678", "role": "viewer"},
+        headers=csrf,
+    )
     client.post("/api/v1/auth/logout")
     assert _login(client, "viewer1", "pass-1234-5678").status_code == 200
     with client.websocket_connect("/ws/control") as ws:
@@ -283,4 +298,3 @@ def test_ai_decisions_redact_model_fields(client):
         assert "model" not in d
         assert "raw_output" not in d
         assert "prompt_version" not in d
-

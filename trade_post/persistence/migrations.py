@@ -1,4 +1,10 @@
-"""Schema migrations. Idempotent, versioned, append-only."""
+"""Schema migrations. Idempotent, versioned, append-only.
+
+Money columns are emitted as ``NUMERIC(30, 10)`` on PostgreSQL (the PRD
+requirement) and as ``TEXT`` on SQLite (local development only), where the
+driver surfaces ``Decimal`` and the repository already stores money as
+stringified ``Decimal``. All other columns are shared across backends.
+"""
 
 from __future__ import annotations
 
@@ -11,32 +17,95 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 log = logging.getLogger(__name__)
 
 
-SCHEMA_SQL = [
-    "CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)",
-    "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, email TEXT, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'viewer', created_at TEXT NOT NULL, last_login_at TEXT, failed_login_count INTEGER NOT NULL DEFAULT 0, locked_until TEXT)",
-    "CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, issued_at TEXT NOT NULL, expires_at TEXT NOT NULL, ip TEXT NOT NULL, user_agent TEXT NOT NULL, revoked INTEGER NOT NULL DEFAULT 0)",
+def resolve_money_type(engine: AsyncEngine) -> str:
+    """Return the column type used for monetary values on this dialect.
+
+    PostgreSQL uses ``NUMERIC(30, 10)``; SQLite stores money as ``TEXT`` for
+    local development. Discovery happens once at startup, at migration time.
+    """
+    dialect = engine.dialect.name if engine.sync_engine else ""
+    return "NUMERIC(30, 10)" if dialect == "postgresql" else "TEXT"
+
+
+_SCHEMA_SQL: tuple[str, ...] = (
+    "CREATE TABLE IF NOT EXISTS schema_migrations "
+    "(id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS users ("
+    " id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, email TEXT,"
+    " password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'viewer',"
+    " created_at TEXT NOT NULL, last_login_at TEXT,"
+    " failed_login_count INTEGER NOT NULL DEFAULT 0, locked_until TEXT)",
+    "CREATE TABLE IF NOT EXISTS sessions ("
+    " id TEXT PRIMARY KEY,"
+    " user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,"
+    " issued_at TEXT NOT NULL, expires_at TEXT NOT NULL, ip TEXT NOT NULL,"
+    " user_agent TEXT NOT NULL, revoked INTEGER NOT NULL DEFAULT 0)",
     "CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)",
-    "CREATE TABLE IF NOT EXISTS login_attempts (id INTEGER PRIMARY KEY AUTOINCREMENT, ip TEXT NOT NULL, username TEXT NOT NULL, success INTEGER NOT NULL, attempted_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS login_attempts ("
+    " id INTEGER PRIMARY KEY AUTOINCREMENT, ip TEXT NOT NULL,"
+    " username TEXT NOT NULL, success INTEGER NOT NULL,"
+    " attempted_at TEXT NOT NULL)",
     "CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip, attempted_at)",
-    "CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, timestamp TEXT NOT NULL, type TEXT NOT NULL, severity TEXT NOT NULL, actor TEXT NOT NULL, payload TEXT NOT NULL, trace_id TEXT, session_id TEXT)",
+    "CREATE TABLE IF NOT EXISTS events ("
+    " id TEXT PRIMARY KEY, timestamp TEXT NOT NULL, type TEXT NOT NULL,"
+    " severity TEXT NOT NULL, actor TEXT NOT NULL, payload TEXT NOT NULL,"
+    " trace_id TEXT, session_id TEXT)",
     "CREATE INDEX IF NOT EXISTS idx_events_ts ON events(timestamp)",
     "CREATE INDEX IF NOT EXISTS idx_events_type ON events(type)",
-    "CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, intent_id TEXT NOT NULL, exchange_order_id TEXT, symbol TEXT NOT NULL, side TEXT NOT NULL, type TEXT NOT NULL, quantity TEXT NOT NULL, filled_quantity TEXT NOT NULL, average_price TEXT, status TEXT NOT NULL, limit_price TEXT, stop_loss_pct TEXT, take_profit_pct TEXT, idempotency_key TEXT NOT NULL UNIQUE, strategy_id TEXT NOT NULL, signal TEXT NOT NULL, conviction INTEGER NOT NULL, rationale TEXT NOT NULL, created_at TEXT NOT NULL, submitted_at TEXT, completed_at TEXT, last_error TEXT, trace_id TEXT)",
+    "CREATE TABLE IF NOT EXISTS orders ("
+    " id TEXT PRIMARY KEY, intent_id TEXT NOT NULL, exchange_order_id TEXT,"
+    " symbol TEXT NOT NULL, side TEXT NOT NULL, type TEXT NOT NULL,"
+    " quantity TEXT NOT NULL, filled_quantity TEXT NOT NULL, average_price TEXT,"
+    " status TEXT NOT NULL, limit_price TEXT, stop_loss_pct TEXT,"
+    " take_profit_pct TEXT, idempotency_key TEXT NOT NULL UNIQUE,"
+    " strategy_id TEXT NOT NULL, signal TEXT NOT NULL, conviction INTEGER NOT NULL,"
+    " rationale TEXT NOT NULL, created_at TEXT NOT NULL, submitted_at TEXT,"
+    " completed_at TEXT, last_error TEXT, trace_id TEXT)",
     "CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)",
     "CREATE INDEX IF NOT EXISTS idx_orders_symbol ON orders(symbol)",
     "CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at)",
-    "CREATE TABLE IF NOT EXISTS fills (id TEXT PRIMARY KEY, order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE, exchange_order_id TEXT NOT NULL, symbol TEXT NOT NULL, side TEXT NOT NULL, quantity TEXT NOT NULL, price TEXT NOT NULL, fee_amount TEXT NOT NULL, fee_currency TEXT NOT NULL, liquidity TEXT NOT NULL, timestamp TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS fills ("
+    " id TEXT PRIMARY KEY,"
+    " order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,"
+    " exchange_order_id TEXT NOT NULL, symbol TEXT NOT NULL, side TEXT NOT NULL,"
+    " quantity TEXT NOT NULL, price TEXT NOT NULL, fee_amount TEXT NOT NULL,"
+    " fee_currency TEXT NOT NULL, liquidity TEXT NOT NULL, timestamp TEXT NOT NULL)",
     "CREATE INDEX IF NOT EXISTS idx_fills_order ON fills(order_id)",
-    "CREATE TABLE IF NOT EXISTS portfolio_snapshots (id TEXT PRIMARY KEY, timestamp TEXT NOT NULL, total_equity TEXT NOT NULL, available_margin TEXT NOT NULL, positions TEXT NOT NULL, base_balances TEXT NOT NULL, risk_adjusted_equity TEXT NOT NULL, margin_utilization TEXT NOT NULL, drawdown_pct TEXT NOT NULL DEFAULT '0')",
+    "CREATE TABLE IF NOT EXISTS portfolio_snapshots ("
+    " id TEXT PRIMARY KEY, timestamp TEXT NOT NULL, total_equity TEXT NOT NULL,"
+    " available_margin TEXT NOT NULL, positions TEXT NOT NULL,"
+    " base_balances TEXT NOT NULL, risk_adjusted_equity TEXT NOT NULL,"
+    " margin_utilization TEXT NOT NULL, drawdown_pct TEXT NOT NULL DEFAULT '0')",
     "CREATE INDEX IF NOT EXISTS idx_portfolio_ts ON portfolio_snapshots(timestamp)",
-    "CREATE TABLE IF NOT EXISTS market_snapshots (id TEXT PRIMARY KEY, symbol TEXT NOT NULL, timestamp TEXT NOT NULL, last_price TEXT NOT NULL, bid TEXT, ask TEXT, spread_bps TEXT, volume_24h TEXT, indicators TEXT, source TEXT NOT NULL DEFAULT 'ccxt')",
+    "CREATE TABLE IF NOT EXISTS market_snapshots ("
+    " id TEXT PRIMARY KEY, symbol TEXT NOT NULL, timestamp TEXT NOT NULL,"
+    " last_price TEXT NOT NULL, bid TEXT, ask TEXT, spread_bps TEXT,"
+    " volume_24h TEXT, indicators TEXT, source TEXT NOT NULL DEFAULT 'ccxt')",
     "CREATE INDEX IF NOT EXISTS idx_market_symbol_ts ON market_snapshots(symbol, timestamp)",
-    "CREATE TABLE IF NOT EXISTS ai_decisions (id TEXT PRIMARY KEY, symbol TEXT NOT NULL, signal TEXT NOT NULL, conviction INTEGER NOT NULL, confidence TEXT NOT NULL, rationale TEXT NOT NULL, raw_output TEXT NOT NULL, model TEXT NOT NULL, prompt_version TEXT NOT NULL, validated INTEGER NOT NULL, validation_errors TEXT NOT NULL, timestamp TEXT NOT NULL, trace_id TEXT)",
+    "CREATE TABLE IF NOT EXISTS ai_decisions ("
+    " id TEXT PRIMARY KEY, symbol TEXT NOT NULL, signal TEXT NOT NULL,"
+    " conviction INTEGER NOT NULL, confidence TEXT NOT NULL, rationale TEXT NOT NULL,"
+    " raw_output TEXT NOT NULL, model TEXT NOT NULL, prompt_version TEXT NOT NULL,"
+    " validated INTEGER NOT NULL, validation_errors TEXT NOT NULL,"
+    " timestamp TEXT NOT NULL, trace_id TEXT)",
     "CREATE INDEX IF NOT EXISTS idx_ai_symbol_ts ON ai_decisions(symbol, timestamp)",
-    "CREATE TABLE IF NOT EXISTS strategy_evaluations (id TEXT PRIMARY KEY, decision_id TEXT NOT NULL, order_id TEXT NOT NULL, symbol TEXT NOT NULL, entry_price TEXT NOT NULL, exit_price TEXT NOT NULL, realized_pnl_amount TEXT NOT NULL, realized_pnl_currency TEXT NOT NULL DEFAULT 'USDT', return_bps TEXT NOT NULL, hold_duration_sec INTEGER NOT NULL, score INTEGER NOT NULL, critique TEXT NOT NULL, timestamp TEXT NOT NULL)",
-    "CREATE TABLE IF NOT EXISTS risk_state (id INTEGER PRIMARY KEY, killed INTEGER NOT NULL DEFAULT 0, kill_reason TEXT, killed_at TEXT, starting_equity TEXT, daily_realized_pnl TEXT NOT NULL DEFAULT '0', session_id TEXT NOT NULL, failures_in_window INTEGER NOT NULL DEFAULT 0, circuit_open INTEGER NOT NULL DEFAULT 0, last_failure_at TEXT)",
-    "CREATE TABLE IF NOT EXISTS ai_circuit_state (id INTEGER PRIMARY KEY, failures INTEGER NOT NULL DEFAULT 0, last_failure_at TEXT, opened_at TEXT)",
-]
+    "CREATE TABLE IF NOT EXISTS strategy_evaluations ("
+    " id TEXT PRIMARY KEY, decision_id TEXT NOT NULL, order_id TEXT NOT NULL,"
+    " symbol TEXT NOT NULL, entry_price TEXT NOT NULL, exit_price TEXT NOT NULL,"
+    " realized_pnl_amount TEXT NOT NULL,"
+    " realized_pnl_currency TEXT NOT NULL DEFAULT 'USDT',"
+    " return_bps TEXT NOT NULL, hold_duration_sec INTEGER NOT NULL,"
+    " score INTEGER NOT NULL, critique TEXT NOT NULL, timestamp TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS risk_state ("
+    " id INTEGER PRIMARY KEY, killed INTEGER NOT NULL DEFAULT 0, kill_reason TEXT,"
+    " killed_at TEXT, starting_equity TEXT,"
+    " daily_realized_pnl TEXT NOT NULL DEFAULT '0', session_id TEXT NOT NULL,"
+    " failures_in_window INTEGER NOT NULL DEFAULT 0,"
+    " circuit_open INTEGER NOT NULL DEFAULT 0, last_failure_at TEXT)",
+    "CREATE TABLE IF NOT EXISTS ai_circuit_state ("
+    " id INTEGER PRIMARY KEY, failures INTEGER NOT NULL DEFAULT 0,"
+    " last_failure_at TEXT, opened_at TEXT)",
+)
 
 
 VERSIONED_MIGRATIONS: list[tuple[str, list[str]]] = [
@@ -52,15 +121,52 @@ VERSIONED_MIGRATIONS: list[tuple[str, list[str]]] = [
             "CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)",
         ],
     ),
+    (
+        "0003_money_ledger",
+        [
+            # PRD core money-safety tables. Money columns use the dialect-aware
+            # {money} placeholder (NUMERIC(30,10) on Postgres, TEXT on SQLite).
+            "CREATE TABLE IF NOT EXISTS idempotency_keys ("
+            " key TEXT PRIMARY KEY, created_at TEXT NOT NULL,"
+            " used_by TEXT, expiration TEXT NOT NULL)",
+            "CREATE INDEX IF NOT EXISTS idx_idempotency_expire ON idempotency_keys(expiration)",
+            "CREATE TABLE IF NOT EXISTS ledger_entries ("
+            " id TEXT PRIMARY KEY, account_id TEXT NOT NULL,"
+            " delta {money} NOT NULL, currency TEXT NOT NULL,"
+            " balance_after {money} NOT NULL, type TEXT NOT NULL,"
+            " reference TEXT NOT NULL, created_at TEXT NOT NULL,"
+            " metadata TEXT NOT NULL DEFAULT '{{}}')",
+            "CREATE INDEX IF NOT EXISTS idx_ledger_account_ts "
+            "ON ledger_entries(account_id, created_at)",
+            "CREATE TABLE IF NOT EXISTS positions ("
+            " id TEXT PRIMARY KEY, symbol TEXT NOT NULL,"
+            " side TEXT NOT NULL DEFAULT 'long', quantity {money} NOT NULL,"
+            " avg_price {money} NOT NULL, mark_price {money},"
+            " realized_pnl {money} NOT NULL DEFAULT '0',"
+            " opened_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS reconciliations ("
+            " id TEXT PRIMARY KEY, run_started_at TEXT NOT NULL,"
+            " run_ended_at TEXT, result TEXT NOT NULL)",
+        ],
+    ),
+    (
+        "0004_ai_schema_version",
+        [
+            "ALTER TABLE ai_decisions "
+            "ADD COLUMN schema_version TEXT NOT NULL DEFAULT 'v1'",
+        ],
+    ),
 ]
 
 
 async def _migration_applied(conn, migration_id: str) -> bool:
     """Return True when a migration id is already recorded in schema_migrations."""
-    row = (await conn.execute(
-        text("SELECT 1 FROM schema_migrations WHERE id = :id"),
-        {"id": migration_id},
-    )).first()
+    row = (
+        await conn.execute(
+            text("SELECT 1 FROM schema_migrations WHERE id = :id"),
+            {"id": migration_id},
+        )
+    ).first()
     return row is not None
 
 
@@ -80,15 +186,17 @@ async def run_migrations(engine: AsyncEngine) -> None:
     migration set stays idempotent and portable across both backends.
     """
     async with engine.begin() as conn:
-        for stmt in SCHEMA_SQL:
+        for stmt in _SCHEMA_SQL:
             await conn.execute(text(stmt))
         await _record_migration(conn, "0001_init")
+        money_type = resolve_money_type(engine)
         for migration_id, statements in VERSIONED_MIGRATIONS:
             if await _migration_applied(conn, migration_id):
                 continue
             for stmt in statements:
+                rendered = stmt.format(money=money_type) if "{money}" in stmt else stmt
                 try:
-                    await conn.execute(text(stmt))
+                    await conn.execute(text(rendered))
                 except Exception as exc:  # noqa: BLE001
                     lower = str(exc).lower()
                     if "duplicate column" in lower or "already exists" in lower:

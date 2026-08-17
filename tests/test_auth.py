@@ -4,7 +4,11 @@ import unittest
 
 from trade_post.core.config import load_settings
 from trade_post.security.auth import (
-    hash_password, verify_password, new_session_id, new_user_id, session_expiry,
+    hash_password,
+    new_session_id,
+    new_user_id,
+    session_expiry,
+    verify_password,
 )
 
 
@@ -23,6 +27,7 @@ class TestPasswordHashing(unittest.TestCase):
 
     def test_empty_password_raises(self):
         from trade_post.core.errors import AuthenticationError
+
         with self.assertRaises(AuthenticationError):
             hash_password("", self.s)
 
@@ -40,10 +45,11 @@ class TestSession(unittest.TestCase):
         self.assertGreater(len(new_session_id()), 32)
 
     def test_session_expiry_future(self):
-                        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta, timezone
+
         s = load_settings()
         exp = session_expiry(s)
-                        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
         # Should be at least `session_ttl_minutes` minutes in the future.
         delta = exp - now
         self.assertGreater(delta, timedelta(minutes=s.session_ttl_minutes - 1))

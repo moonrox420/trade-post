@@ -109,7 +109,6 @@ class AIBrain:
             )
         return decision
 
-
     def to_intent(
         self,
         decision: AIDecision,
@@ -117,8 +116,10 @@ class AIBrain:
         last_price: Decimal,
         quantity: Decimal,
     ) -> OrderIntent:
-        side = OrderSide.BUY if decision.signal is SignalSide.LONG else (
-            OrderSide.SELL if decision.signal is SignalSide.SHORT else OrderSide.SELL
+        side = (
+            OrderSide.BUY
+            if decision.signal is SignalSide.LONG
+            else (OrderSide.SELL if decision.signal is SignalSide.SHORT else OrderSide.SELL)
         )
         order_type = OrderType.MARKET
         amount = max(Decimal("0"), Decimal(str(quantity)))
@@ -131,9 +132,7 @@ class AIBrain:
             quantity=amount,
             stop_loss_pct=trailing_stop_pct,
             time_in_force=TimeInForce.GTC,
-            idempotency_key=idempotency_key_for(
-                decision.symbol, side, order_type, amount, decision.id[:8]
-            ),
+            idempotency_key=idempotency_key_for(decision.symbol, side, order_type, amount, decision.id[:8]),
             strategy_id=decision.id,
             signal=decision.signal,
             conviction=decision.conviction,
