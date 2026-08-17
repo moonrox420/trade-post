@@ -50,8 +50,9 @@ class Settings(BaseSettings):
     instance_id: str = Field(default_factory=lambda: secrets.token_hex(8))
 
     host: str = "0.0.0.0"
-    port: int = 8080
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:8080"])
+    port: int = 8065
+    public_host: str = "localhost"
+    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:8065"])
 
     database_url: str = "sqlite+aiosqlite:///./trade_post.db"
     redis_url: str | None = None
@@ -104,6 +105,12 @@ class Settings(BaseSettings):
     bcrypt_work_factor: int = Field(default=12, ge=4, le=16)
     login_max_attempts_per_ip: int = Field(default=8, ge=1, le=1000)
     login_lockout_minutes: int = Field(default=15, ge=1, le=10_080)
+    password_min_length: int = Field(default=10, ge=8, le=128)
+
+    # Bootstrap administrator credential. When None and no admin user exists
+    # at startup, a one-time random password is generated and logged exactly
+    # once at WARNING level. Never hard-code a production password here.
+    drox_admin_password: str | None = None
 
     log_level: LogLevel = LogLevel.INFO
     enable_metrics: bool = True
@@ -114,7 +121,10 @@ class Settings(BaseSettings):
 
     @field_validator("session_secret")
     @classmethod
-    def _warn_default_secret(cls: type[Self], value: str) -> str:
+    def _warn_default_secret(
+        cls,
+        value: str,
+    ) -> str:
         if len(value) < 32:
             raise ValueError("SESSION_SECRET must be at least 32 characters")
         return value
@@ -137,17 +147,17 @@ class Settings(BaseSettings):
         return bool(self.exchange_api_key and self.exchange_api_secret)
 
     @property
+    def base_url(self) -> str:
+        return f"http://{self.public_host}:{self.port}"
+
+    @property
     def ollama_chat_url(self) -> str:
         base = str(self.ollama_url).rstrip("/")
-        if self.ollama_api_key and ("localhost" in base or "127.0.0.1" in base):
-            return "https://ollama.com/api/chat"
         return f"{base}/api/chat"
 
     @property
     def ollama_tags_url(self) -> str:
         base = str(self.ollama_url).rstrip("/")
-        if self.ollama_api_key and ("localhost" in base or "127.0.0.1" in base):
-            return "https://ollama.com/api/tags"
         return f"{base}/api/tags"
 
 

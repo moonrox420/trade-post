@@ -1,0 +1,17 @@
+﻿============================= test session starts =============================
+collecting ... collected 16 items
+
+tests/test_auth_integration.py::test_health_is_public PASSED             [  6%]
+tests/test_auth_integration.py::test_valid_login_establishes_session PASSED [ 12%]
+tests/test_auth_integration.py::test_invalid_login_is_generic PASSED     [ 18%]
+tests/test_auth_integration.py::test_logout_revokes_server_session PASSED [ 25%]
+tests/test_auth_integration.py::test_me_and_reads_require_auth PASSED    [ 31%]
+tests/test_auth_integration.py::test_authenticated_read_access PASSED    [ 37%]
+tests/test_auth_integration.py::test_expired_session_rejected PASSED     [ 43%]
+tests/test_auth_integration.py::test_csrf_required_for_state_changes PASSED [ 50%]
+tests/test_auth_integration.py::test_brute_force_rate_limit PASSED       [ 56%]
+tests/test_auth_integration.py::test_role_authorization FAILED           [ 62%]
+tests/test_auth_integration.py::test_admin_list_users_never_exposes_password PASSED [ 68%]
+tests/test_auth_integration.py::test_websocket_rejects_unauthenticated PASSED [ 75%]
+tests/test_auth_integration.py::test_websocket_authorized_ping PASSED    [ 81%]
+tests/test_auth_integration.py::test_websocket_enforces_role PASSED      [ 87%]

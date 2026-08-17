@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 from decimal import Decimal
-from typing import Sequence
 
 Number = float | int | Decimal
 
@@ -80,11 +79,11 @@ def atr(highs, lows, closes, period=14):
     if period <= 0 or len(highs) < period + 1:
         return None
     h = _to_floats(highs)
-    l = _to_floats(lows)
+    low_prices = _to_floats(lows)
     c = _to_floats(closes)
     trs = []
     for i in range(1, len(c)):
-        tr = max(h[i] - l[i], abs(h[i] - c[i - 1]), abs(l[i] - c[i - 1]))
+        tr = max(h[i] - low_prices[i], abs(h[i] - c[i - 1]), abs(low_prices[i] - c[i - 1]))
         trs.append(tr)
     if len(trs) < period:
         return None
@@ -109,7 +108,10 @@ def vwap(highs, lows, closes, volumes):
         return None
     if sum(float(v) for v in volumes) == 0:
         return None
-    typical = [(float(h) + float(l) + float(c)) / 3.0 for h, l, c in zip(highs, lows, closes)]
+    typical = [
+        (float(high) + float(low) + float(close)) / 3.0
+        for high, low, close in zip(highs, lows, closes)
+    ]
     pv = sum(t * float(v) for t, v in zip(typical, volumes))
     v = sum(float(x) for x in volumes)
     return pv / v

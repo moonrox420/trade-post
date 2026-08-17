@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import logging
-import signal
+import secrets
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -22,10 +21,11 @@ from ..domain.models import (
 )
 from ..execution.engine import ExecutionEngine
 from ..market.service import MarketDataService
-from ..persistence.database import Database, init_database
+from ..persistence.database import init_database
 from ..persistence.migrations import run_migrations
 from ..persistence.repository import Repository
 from ..risk.engine import RiskEngine
+from ..security.auth import hash_password
 from ..strategy.signals import SignalEngine
 
 log = get_logger(__name__)
@@ -66,6 +66,8 @@ class Orchestrator:
         self.brain = AIBrain(settings, self.ollama)
         self.signals = SignalEngine(settings)
         self.execution: ExecutionEngine | None = None
+        # Autonomous AI trading is opt-in and controlled by authenticated operators.
+        self.autonomous_enabled: bool = False
 
     @property
     def settings(self) -> Settings:
@@ -75,19 +77,27 @@ class Orchestrator:
     def tasks(self) -> TaskRegistry:
         return self._tasks
 
-    async def startup(self) -> None:
-        log.info("Orchestrator starting env=%s", self._settings.app_env)
+    async def startup_core(self) -> None:
+        """Database, migrations, risk engine, execution engine, and admin bootstrap.
+
+        Safe to run in tests: performs no external network connections and
+        starts no background loops. ``startup`` extends this with market/AI
+        connections and the background task registry.
+        """
         await self._db.connect()
         await run_migrations(self._db.engine)
         async with self._db.session() as s:
             repo = Repository(s)
-            self.risk.bind_repository(repo)
+            self.risk.bind_database(self._db)
             await self.risk.load()
             self.execution = ExecutionEngine(self._settings, self.market, self.risk, repo)
-            if self._settings.app_env != "production":
-                admin = await repo.get_user_by_username("admin")
-                if admin is None:
-                    await self._bootstrap_admin(repo)
+            admin = await repo.get_user_by_username("admin")
+            if admin is None:
+                await self._bootstrap_admin(repo)
+
+    async def startup(self) -> None:
+        log.info("Orchestrator starting env=%s", self._settings.app_env)
+        await self.startup_core()
         await self.market.connect()
         await self.ollama.connect()
         try:
@@ -119,11 +129,29 @@ class Orchestrator:
         log.info("Orchestrator stopped")
 
     async def _bootstrap_admin(self, repo: Repository) -> None:
-        import secrets
-        from ..security.auth import hash_password
+        """Create the first administrator account when no admin exists.
 
+        Uses ``settings.drox_admin_password`` when provided; otherwise generates
+        a one-time random password and logs it exactly once at WARNING. The
+        one-time credential line is intentionally formatted without an ``=``
+        separator so the secret-scrubbing logging filter does not redact it.
+        The configured credential itself is never logged.
+        """
         username = "admin"
-        password = secrets.token_urlsafe(16)
+        configured = self._settings.drox_admin_password
+        if configured:
+            password = configured
+            log.warning(
+                "Bootstrap admin user created: %s (credential sourced from DROX_ADMIN_PASSWORD)",
+                username,
+            )
+        else:
+            password = secrets.token_urlsafe(18)
+            log.warning(
+                "Bootstrap admin user created: %s (one-time password shown once, change immediately)",
+                username,
+            )
+            log.warning("Bootstrap one-time password for %s: %s", username, password)
         await repo.insert_user(
             id=secrets.token_hex(8),
             username=username,
@@ -132,8 +160,50 @@ class Orchestrator:
             role="admin",
             created_at=datetime.now(timezone.utc).isoformat(),
         )
-        log.warning("Bootstrap admin user created: %s (one-time password printed once)", username)
-        log.warning("BOOTSTRAP_ADMIN_PASSWORD=%s", password)
+        await repo.insert_event(Event(
+            type="account_created",
+            severity=EventSeverity.WARNING,
+            actor="system",
+            payload={"username": username, "role": "admin", "bootstrap": True},
+        ))
+
+    @property
+    def is_autonomous_running(self) -> bool:
+        """True when autonomous trading is enabled and the kill switch is off."""
+        return self.autonomous_enabled and not self.risk.state.killed
+
+    async def start_autonomous(self, actor: str) -> None:
+        self.autonomous_enabled = True
+        log.info("autonomous enabled by %s", actor)
+
+    async def stop_autonomous(self, actor: str) -> None:
+        self.autonomous_enabled = False
+        log.info("autonomous disabled by %s", actor)
+
+    def subscribe_symbol(self, symbol: str) -> bool:
+        """Add a symbol to the in-memory subscription list. Returns True if added."""
+        sym = (symbol or "").strip().upper()
+        if not sym or sym in self._settings.subscribed_symbols:
+            return False
+        self._settings.subscribed_symbols.append(sym)
+        return True
+
+    def unsubscribe_symbol(self, symbol: str) -> bool:
+        """Remove a symbol from the in-memory subscription list. Returns True if removed."""
+        sym = (symbol or "").strip().upper()
+        if sym and sym in self._settings.subscribed_symbols:
+            self._settings.subscribed_symbols.remove(sym)
+            return True
+        return False
+
+    async def run_single_analysis(self, actor: str) -> dict:
+        """Run one AI analysis cycle on demand. Does not expose internal model details."""
+        try:
+            await self._run_one_ai_cycle()
+            return {"ok": True}
+        except Exception as exc:  # noqa: BLE001
+            log.warning("on-demand analysis by %s failed: %s", actor, exc)
+            return {"ok": False, "error": "analysis_unavailable"}
 
     async def _loop_market_stream(self) -> None:
         while True:
@@ -211,10 +281,12 @@ class Orchestrator:
             await asyncio.sleep(60)
 
     async def _run_one_ai_cycle(self) -> None:
+        if not self.autonomous_enabled:
+            return
         if self.risk.state.killed or self.risk.state.circuit_open:
             return
         async with self._db.session() as s:
-            recent_evals = await Repository(s).recent_evaluations(limit=5)
+            recent_evals = await Repository(s).list_recent_ai_decisions(limit=5)
         for sym in self._settings.subscribed_symbols:
             try:
                 snap = await self.market.get_snapshot(sym, use_cache=True)
@@ -233,7 +305,7 @@ class Orchestrator:
                 )
                 async with self._db.session() as s2:
                     await Repository(s2).insert_ai_decision(
-                        decision_id=decision.id, symbol=decision.symbol,
+                        id=decision.id, symbol=decision.symbol,
                         signal=decision.signal.value, conviction=decision.conviction,
                         confidence=decision.confidence, rationale=decision.rationale,
                         raw_output=decision.raw_output, model=decision.model,

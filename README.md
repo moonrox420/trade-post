@@ -3,15 +3,14 @@
 **A local-first, AI-assisted algorithmic trading system.**
 
 Drox Trade Post is a production-grade trading engine built around a hardened
-Ollama (local) AI brain, a deterministic risk pipeline, and a money-safe
-ledger. Everything is yours: no cloud dependencies, no Google AI, no
-Firestore. Real auth, real metrics, real data — every value on the dashboard
-comes from the database or the exchange.
+Ollama AI brain (local or cloud via Ollama Cloud API), a deterministic risk
+pipeline, and a money-safe ledger. Everything is yours: no proprietary cloud
+AI dependencies — the AI provider is your own Ollama instance.
 
 ## Highlights
 
-- **100% local AI via Ollama.** No cloud AI. No Vertex. No Firestore. Circuit
-  breaker, retries, JSON guard, deterministic fallback.
+- **100% Ollama AI.** Local or Ollama Cloud API. Circuit breaker, retries,
+  JSON guard, deterministic fallback.
 - **Money-safe by default.** Every monetary value is `Decimal`. The ledger
   uses parameterized SQL with explicit migrations. No binary float anywhere
   in the financial path.
@@ -64,7 +63,7 @@ cp .env.example .env
 # Edit .env: set OLLAMA_URL, EXCHANGE_*, etc.
 
 # 3. Run
-python -m uvicorn trade_post.api.server:create_app --factory --host 127.0.0.1 --port 8080
+python -m uvicorn trade_post.api.server:create_app --factory --host 127.0.0.1 --port 8065
 # OR
 python -m trade_post.app
 ```

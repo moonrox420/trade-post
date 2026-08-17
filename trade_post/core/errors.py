@@ -19,7 +19,7 @@ class ExchangeError(TradingPostError):
     """Exchange adapter failure (network, auth, malformed response)."""
 
     def __init__(self, message: str, *, symbol: str | None = None,
-                 original: Exception | None = None) -> None:
+                original: Exception | None = None) -> None:
         super().__init__(message)
         self.symbol = symbol
         self.original = original

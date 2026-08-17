@@ -1,0 +1,71 @@
+﻿============================= test session starts =============================
+collecting ... collected 1 item
+
+tests/test_auth_integration.py::test_role_authorization FAILED           [100%]
+
+================================== FAILURES ===================================
+___________________________ test_role_authorization ___________________________
+
+client = <starlette.testclient.TestClient object at 0x0000015630EB9700>
+
+    def test_role_authorization(client):
+        assert _login(client).status_code == 200  # admin
+        csrf = _csrf_headers(client)
+        for name, role in (("viewer1", "viewer"), ("op1", "operator")):
+            r = client.post("/api/v1/admin/users",
+                            json={"username": name, "password": "pass-1234-5678", "role": role},
+                            headers=csrf)
+            assert r.status_code == 200, r.text
+        assert client.get("/api/v1/admin/users").status_code == 200
+    
+        # Viewer: read-only.
+        client.post("/api/v1/auth/logout")
+        assert _login(client, "viewer1", "pass-1234-5678").status_code == 200
+        vcsrf = _csrf_headers(client)
+        assert client.get("/api/v1/me").json()["role"] == "viewer"
+        assert client.get("/api/v1/portfolio").status_code == 200
+>       assert client.post("/api/v1/start", json={}, headers=vcrsf).status_code == 403
+                                                             ^^^^^
+E       NameError: name 'vcrsf' is not defined
+
+tests\test_auth_integration.py:185: NameError
+----------------------------- Captured log setup ------------------------------
+WARNING  trade_post.orchestrator.runtime:runtime.py:144 Bootstrap admin user created: admin (credential sourced from DROX_ADMIN_PASSWORD)
+============================== warnings summary ===============================
+.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\droxa\trade_post\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_auth_integration.py::test_role_authorization
+tests/test_auth_integration.py::test_role_authorization
+  C:\Users\droxa\trade_post\trade_post\api\server.py:189: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    window = datetime.utcnow() - timedelta(minutes=settings.login_lockout_minutes)
+
+tests/test_auth_integration.py::test_role_authorization
+tests/test_auth_integration.py::test_role_authorization
+  C:\Users\droxa\trade_post\trade_post\persistence\repository.py:22: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return datetime.utcnow().isoformat()
+
+tests/test_auth_integration.py::test_role_authorization
+tests/test_auth_integration.py::test_role_authorization
+  C:\Users\droxa\trade_post\trade_post\api\server.py:327: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_auth_integration.py::test_role_authorization
+tests/test_auth_integration.py::test_role_authorization
+tests/test_auth_integration.py::test_role_authorization
+tests/test_auth_integration.py::test_role_authorization
+tests/test_auth_integration.py::test_role_authorization
+tests/test_auth_integration.py::test_role_authorization
+  C:\Users\droxa\trade_post\trade_post\persistence\repository.py:255: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    if datetime.fromisoformat(row.expires_at) < datetime.utcnow():
+
+tests/test_auth_integration.py::test_role_authorization
+tests/test_auth_integration.py::test_role_authorization
+  C:\Users\droxa\trade_post\trade_post\api\server.py:530: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    role=body.role, created_at=datetime.utcnow().isoformat(),
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_auth_integration.py::test_role_authorization - NameError: name 'vcrsf' is not defined
+======================= 1 failed, 15 warnings in 3.25s ========================

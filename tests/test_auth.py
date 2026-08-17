@@ -40,10 +40,10 @@ class TestSession(unittest.TestCase):
         self.assertGreater(len(new_session_id()), 32)
 
     def test_session_expiry_future(self):
-        from datetime import datetime, timedelta
+                        from datetime import datetime, timedelta, timezone
         s = load_settings()
         exp = session_expiry(s)
-        now = datetime.utcnow()
+                        now = datetime.now(timezone.utc)
         # Should be at least `session_ttl_minutes` minutes in the future.
         delta = exp - now
         self.assertGreater(delta, timedelta(minutes=s.session_ttl_minutes - 1))

@@ -7,12 +7,11 @@ import logging
 import time
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any
 
 import ccxt.async_support as ccxt
 
 from ..core.config import Settings
-from ..core.errors import ExchangeError, StaleMarketData
+from ..core.errors import ExchangeError
 from ..domain.models import MarketSnapshot
 from . import indicators as ind
 
@@ -40,17 +39,19 @@ class MarketDataService:
             cfg["apiKey"] = self._settings.exchange_api_key
             cfg["secret"] = self._settings.exchange_api_secret
         self._exchange = cls(cfg)
+        if self._exchange is None:
+            raise ExchangeError("Failed to instantiate exchange client")
         if self._settings.exchange_sandbox and hasattr(self._exchange, "setSandboxMode"):
             try:
-                self._exchange.setSandboxMode(True)
+                self._exchange.setSandboxMode(True)  # type: ignore[attr-defined]
             except Exception as exc:  # noqa: BLE001
                 log.warning("sandbox mode unsupported on %s: %s", self._settings.exchange_id.value, exc)
         try:
-            await self._exchange.load_markets()
+            await self._exchange.load_markets()  # type: ignore[attr-defined]
         except Exception as exc:  # noqa: BLE001
             raise ExchangeError("Failed to load markets", original=exc) from exc
         log.info("market data service connected exchange=%s sandbox=%s",
-                 self._settings.exchange_id.value, self._settings.exchange_sandbox)
+                self._settings.exchange_id.value, self._settings.exchange_sandbox)
 
     async def disconnect(self) -> None:
         if self._exchange is not None:
@@ -61,7 +62,7 @@ class MarketDataService:
                 log.info("market data service disconnected")
 
     async def get_snapshot(self, symbol: str, *, use_cache: bool = True,
-                           max_age_sec: float | None = None) -> MarketSnapshot:
+                        max_age_sec: float | None = None) -> MarketSnapshot:
         max_age = max_age_sec if max_age_sec is not None else float(self._settings.max_stale_data_sec)
         if use_cache:
             cached = self._cache.get(symbol)

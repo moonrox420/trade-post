@@ -6,7 +6,6 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any
 
 from pydantic import ValidationError
 

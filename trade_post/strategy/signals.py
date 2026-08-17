@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Any
 
 from ..core.config import Settings
 from ..domain.models import MarketSnapshot, SignalSide, StrategySignal
@@ -37,7 +36,6 @@ class SignalEngine:
         macd_hist = _f(macd.get("histogram")) if isinstance(macd, dict) else None
         ema_fast = _f(ind.get("ema_fast"))
         ema_slow = _f(ind.get("ema_slow"))
-        bb = ind.get("bollinger") or {}
         vol = _f(ind.get("volatility")) or 0.0
 
         # Trend: EMA cross

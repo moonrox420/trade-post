@@ -1,6 +1,5 @@
 """Unit tests for trade_post.market.indicators."""
 
-import math
 import unittest
 
 from trade_post.market import indicators as ind

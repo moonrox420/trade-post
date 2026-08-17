@@ -8,7 +8,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from .config import LogLevel, Settings
+from .config import Settings
 
 trace_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "trace_id", default=None

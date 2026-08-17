@@ -41,12 +41,25 @@ class Database:
         connect_args: dict = {}
         if url.startswith("sqlite"):
             connect_args["check_same_thread"] = False
+            connect_args["timeout"] = 30  # seconds busy-timeout for concurrent writers
         self._engine = create_async_engine(
             url,
             connect_args=connect_args,
             pool_pre_ping=True,
             future=True,
         )
+        if url.startswith("sqlite"):
+            # Use WAL journal mode + busy timeout so concurrent async sessions
+            # (pooled connections) do not trip "database is locked".
+            from sqlalchemy import event
+
+            @event.listens_for(self._engine.sync_engine, "connect")
+            def _set_sqlite_pragma(dbapi_connection, connection_record) -> None:  # noqa: ANN001
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.execute("PRAGMA busy_timeout=30000")
+                cursor.close()
+
         self._session_factory = async_sessionmaker(
             bind=self._engine, expire_on_commit=False, class_=AsyncSession
         )

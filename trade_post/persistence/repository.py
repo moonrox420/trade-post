@@ -6,13 +6,25 @@ import json
 import logging
 from datetime import datetime
 from decimal import Decimal
+from typing import cast
 
 from sqlalchemy import text
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..domain.models import (
-    Event, EventSeverity, Fill, MarketSnapshot, Money, Order, OrderSide,
-    OrderStatus, OrderType, PortfolioSnapshot, RiskState, SignalSide,
+    Event,
+    EventSeverity,
+    Fill,
+    MarketSnapshot,
+    Money,
+    Order,
+    OrderSide,
+    OrderStatus,
+    OrderType,
+    PortfolioSnapshot,
+    RiskState,
+    SignalSide,
 )
 
 log = logging.getLogger(__name__)
@@ -54,19 +66,24 @@ class Repository:
             _order_dict(order))
 
     async def update_order_status(self, order_id, status, *, exchange_order_id=None,
-                                  average_price=None, filled_quantity=None, last_error=None) -> None:
+                                average_price=None, filled_quantity=None, last_error=None) -> None:
         sets = ["status = :status"]
         params = {"id": order_id, "status": status.value}
         if exchange_order_id is not None:
-            sets.append("exchange_order_id = :eid"); params["eid"] = exchange_order_id
+            sets.append("exchange_order_id = :eid")
+            params["eid"] = exchange_order_id
         if average_price is not None:
-            sets.append("average_price = :ap"); params["ap"] = str(average_price)
+            sets.append("average_price = :ap")
+            params["ap"] = str(average_price)
         if filled_quantity is not None:
-            sets.append("filled_quantity = :fq"); params["fq"] = str(filled_quantity)
+            sets.append("filled_quantity = :fq")
+            params["fq"] = str(filled_quantity)
         if last_error is not None:
-            sets.append("last_error = :le"); params["le"] = last_error
+            sets.append("last_error = :le")
+            params["le"] = last_error
         if status in (OrderStatus.FILLED, OrderStatus.CANCELLED, OrderStatus.REJECTED, OrderStatus.EXPIRED):
-            sets.append("completed_at = :ts"); params["ts"] = _now_iso()
+            sets.append("completed_at = :ts")
+            params["ts"] = _now_iso()
         await self._s.execute(text(f"UPDATE orders SET {', '.join(sets)} WHERE id = :id"), params)
 
     async def get_order_by_id(self, order_id):
@@ -74,7 +91,10 @@ class Repository:
         return _order_from_row(row) if row else None
 
     async def get_order_by_idempotency(self, key):
-        row = (await self._s.execute(text("SELECT * FROM orders WHERE idempotency_key = :k"), {"k": key})).first()
+        row = (await self._s.execute(
+            text("SELECT * FROM orders WHERE idempotency_key = :k"),
+            {"k": key},
+        )).first()
         return _order_from_row(row) if row else None
 
     async def list_open_orders(self):
@@ -90,24 +110,27 @@ class Repository:
             " price, fee_amount, fee_currency, liquidity, timestamp)"
             " VALUES (:id, :oid, :eoid, :sym, :side, :q, :p, :fa, :fc, :liq, :ts)"),
             {"id": fill.id, "oid": fill.order_id, "eoid": fill.exchange_order_id,
-             "sym": fill.symbol, "side": fill.side.value,
-             "q": str(fill.quantity), "p": str(fill.price),
-             "fa": str(fill.fee.amount), "fc": fill.fee.currency,
-             "liq": fill.liquidity, "ts": fill.timestamp.isoformat()})
+            "sym": fill.symbol, "side": fill.side.value,
+            "q": str(fill.quantity), "p": str(fill.price),
+            "fa": str(fill.fee.amount), "fc": fill.fee.currency,
+            "liq": fill.liquidity, "ts": fill.timestamp.isoformat()})
 
     async def insert_market_snapshot(self, snap: MarketSnapshot) -> None:
+        # INSERT OR REPLACE keeps this idempotent: get_snapshot() may return a
+        # still-fresh *cached* snapshot whose second-resolution id was already
+        # written, which would otherwise trip the primary key.
         await self._s.execute(text(
-            "INSERT INTO market_snapshots (id, symbol, timestamp, last_price, bid, ask,"
+            "INSERT OR REPLACE INTO market_snapshots (id, symbol, timestamp, last_price, bid, ask,"
             " spread_bps, volume_24h, indicators, source)"
             " VALUES (:id, :sym, :ts, :lp, :bid, :ask, :sb, :v, :ind, :src)"),
             {"id": f"mkt_{snap.symbol}_{int(snap.timestamp.timestamp())}",
-             "sym": snap.symbol, "ts": snap.timestamp.isoformat(),
-             "lp": str(snap.last_price),
-             "bid": str(snap.bid) if snap.bid else None,
-             "ask": str(snap.ask) if snap.ask else None,
-             "sb": str(snap.spread_bps) if snap.spread_bps else None,
-             "v": str(snap.volume_24h) if snap.volume_24h else None,
-             "ind": json.dumps(snap.indicators or {}), "src": snap.source})
+            "sym": snap.symbol, "ts": snap.timestamp.isoformat(),
+            "lp": str(snap.last_price),
+            "bid": str(snap.bid) if snap.bid else None,
+            "ask": str(snap.ask) if snap.ask else None,
+            "sb": str(snap.spread_bps) if snap.spread_bps else None,
+            "v": str(snap.volume_24h) if snap.volume_24h else None,
+            "ind": json.dumps(snap.indicators or {}), "src": snap.source})
 
     async def latest_market_snapshot(self, symbol):
         row = (await self._s.execute(
@@ -127,30 +150,31 @@ class Repository:
             " positions, base_balances, risk_adjusted_equity, margin_utilization, drawdown_pct)"
             " VALUES (:id, :ts, :te, :am, :pos, :bb, :rae, :mu, :dd)"),
             {"id": f"pf_{int(snap.timestamp.timestamp() * 1e6)}",
-             "ts": snap.timestamp.isoformat(),
-             "te": str(snap.total_equity.amount),
-             "am": str(snap.available_margin.amount),
-             "pos": json.dumps([{"symbol": p.symbol, "side": p.side.value,
+            "ts": snap.timestamp.isoformat(),
+            "te": str(snap.total_equity.amount),
+            "am": str(snap.available_margin.amount),
+            "pos": json.dumps([{"symbol": p.symbol, "side": p.side.value,
                                 "quantity": str(p.quantity), "entry_price": str(p.entry_price),
                                 "mark_price": str(p.mark_price),
                                 "unrealized_pnl": str(p.unrealized_pnl.amount),
                                 "leverage": str(p.leverage)} for p in snap.positions]),
-             "bb": json.dumps({k: str(v.amount) for k, v in snap.base_balances.items()}),
-             "rae": str(snap.risk_adjusted_equity.amount),
-             "mu": str(snap.margin_utilization),
-             "dd": str(snap.drawdown_pct)})
+            "bb": json.dumps({k: str(v.amount) for k, v in snap.base_balances.items()}),
+            "rae": str(snap.risk_adjusted_equity.amount),
+            "mu": str(snap.margin_utilization),
+            "dd": str(snap.drawdown_pct)})
 
     async def insert_ai_decision(self, *, id, symbol, signal, conviction, confidence,
-                                 rationale, raw_output, model, prompt_version,
-                                 validated, validation_errors, timestamp, trace_id) -> None:
+                                rationale, raw_output, model, prompt_version,
+                                validated, validation_errors, timestamp, trace_id) -> None:
+        ts = timestamp.isoformat() if isinstance(timestamp, datetime) else str(timestamp)
         await self._s.execute(text(
             "INSERT INTO ai_decisions (id, symbol, signal, conviction, confidence, rationale,"
             " raw_output, model, prompt_version, validated, validation_errors, timestamp, trace_id)"
             " VALUES (:id, :sym, :sig, :conv, :conf, :r, :ro, :m, :pv, :v, :ve, :ts, :trc)"),
             {"id": id, "sym": symbol, "sig": signal, "conv": conviction,
-             "conf": str(confidence), "r": rationale, "ro": json.dumps(raw_output),
-             "m": model, "pv": prompt_version, "v": 1 if validated else 0,
-             "ve": json.dumps(validation_errors), "ts": timestamp.isoformat(), "trc": trace_id})
+            "conf": str(confidence), "r": rationale, "ro": json.dumps(raw_output),
+            "m": model, "pv": prompt_version, "v": 1 if validated else 0,
+            "ve": json.dumps(validation_errors), "ts": ts, "trc": trace_id})
 
 
     async def list_recent_ai_decisions(self, limit=50):
@@ -187,26 +211,26 @@ class Repository:
             " starting_equity, daily_realized_pnl, session_id, failures_in_window,"
             " circuit_open, last_failure_at) VALUES (1, :k, :kr, :ka, :se, :dp, :sid, :fw, :co, :lfa)"),
             {"k": 1 if state.killed else 0, "kr": state.kill_reason,
-             "ka": state.killed_at.isoformat() if state.killed_at else None,
-             "se": str(state.starting_equity.amount) if state.starting_equity else None,
-             "dp": str(state.daily_realized_pnl.amount), "sid": state.session_id,
-             "fw": state.failures_in_window, "co": 1 if state.circuit_open else 0,
-             "lfa": state.last_failure_at.isoformat() if state.last_failure_at else None})
+            "ka": state.killed_at.isoformat() if state.killed_at else None,
+            "se": str(state.starting_equity.amount) if state.starting_equity else None,
+            "dp": str(state.daily_realized_pnl.amount), "sid": state.session_id,
+            "fw": state.failures_in_window, "co": 1 if state.circuit_open else 0,
+            "lfa": state.last_failure_at.isoformat() if state.last_failure_at else None})
 
     async def insert_event(self, event: Event) -> None:
         await self._s.execute(text(
             "INSERT INTO events (id, timestamp, type, severity, actor, payload, trace_id, session_id)"
             " VALUES (:id, :ts, :t, :s, :a, :p, :trc, :sid)"),
             {"id": event.id, "ts": event.timestamp.isoformat(),
-             "t": event.type, "s": event.severity.value, "a": event.actor,
-             "p": json.dumps(event.payload), "trc": event.trace_id, "sid": event.session_id})
+            "t": event.type, "s": event.severity.value, "a": event.actor,
+            "p": json.dumps(event.payload), "trc": event.trace_id, "sid": event.session_id})
 
     async def list_recent_events(self, limit=100):
         rows = (await self._s.execute(
             text("SELECT * FROM events ORDER BY timestamp DESC LIMIT :n"), {"n": limit})).fetchall()
         return [Event(id=r.id, timestamp=datetime.fromisoformat(r.timestamp),
-                      type=r.type, severity=EventSeverity(r.severity), actor=r.actor,
-                      payload=json.loads(r.payload or "{}"), trace_id=r.trace_id, session_id=r.session_id)
+                    type=r.type, severity=EventSeverity(r.severity), actor=r.actor,
+                    payload=json.loads(r.payload or "{}"), trace_id=r.trace_id, session_id=r.session_id)
                 for r in rows]
 
     async def get_user_by_username(self, username):
@@ -229,6 +253,11 @@ class Repository:
         await self._s.execute(
             text("UPDATE users SET last_login_at = :w WHERE id = :id"),
             {"w": when, "id": user_id})
+
+    async def update_user_password(self, user_id, password_hash) -> None:
+        await self._s.execute(
+            text("UPDATE users SET password_hash = :ph WHERE id = :id"),
+            {"ph": password_hash, "id": user_id})
 
     async def insert_session(self, *, id, user_id, issued_at, expires_at, ip, user_agent) -> None:
         await self._s.execute(text(
@@ -255,6 +284,105 @@ class Repository:
             "INSERT INTO login_attempts (ip, username, success, attempted_at)"
             " VALUES (:ip, :u, :s, :ts)"),
             {"ip": ip, "u": username, "s": 1 if success else 0, "ts": _now_iso()})
+
+
+
+    async def count_failed_attempts_by_ip(self, ip: str, since: datetime) -> int:
+        row = (await self._s.execute(
+            text(
+                "SELECT COUNT(*) AS c FROM login_attempts"
+                " WHERE ip = :ip AND success = 0 AND attempted_at >= :since"
+            ),
+            {"ip": ip, "since": since.isoformat()},
+        )).first()
+        return int(row.c) if row else 0
+
+    async def increment_failed_login(self, user_id: str) -> None:
+        await self._s.execute(
+            text(
+                "UPDATE users SET failed_login_count = failed_login_count + 1"
+                " WHERE id = :id"
+            ),
+            {"id": user_id},
+        )
+
+    async def reset_failed_login(self, user_id: str) -> None:
+        await self._s.execute(
+            text(
+                "UPDATE users SET failed_login_count = 0, locked_until = NULL"
+                " WHERE id = :id"
+            ),
+            {"id": user_id},
+        )
+
+    async def lock_user(self, user_id: str, until: datetime) -> None:
+        await self._s.execute(
+            text("UPDATE users SET locked_until = :until WHERE id = :id"),
+            {"until": until.isoformat(), "id": user_id},
+        )
+
+    async def get_user_lock_status(self, user_id: str) -> dict | None:
+        row = (await self._s.execute(
+            text(
+                "SELECT failed_login_count, locked_until FROM users WHERE id = :id"
+            ),
+            {"id": user_id},
+        )).first()
+        if not row:
+            return None
+        return {"failed_login_count": row.failed_login_count, "locked_until": row.locked_until}
+
+    async def list_users(self) -> list[dict]:
+        """Return all users without password hashes (for the admin management UI)."""
+        rows = (await self._s.execute(text(
+            "SELECT id, username, email, role, account_status, created_at,"
+            " last_login_at, updated_at, failed_login_count, locked_until"
+            " FROM users ORDER BY created_at ASC"
+        ))).fetchall()
+        return [dict(r._mapping) for r in rows]
+
+    async def count_users_by_role(self, role: str) -> int:
+        row = (await self._s.execute(
+            text("SELECT COUNT(*) AS c FROM users WHERE role = :r"),
+            {"r": role},
+        )).first()
+        return int(row.c) if row else 0
+
+    async def update_user_role_status(self, user_id: str, *, role: str | None = None,
+                                      account_status: str | None = None) -> None:
+        """Update a user's role and/or account status (administrator operation)."""
+        sets: list[str] = []
+        params: dict = {"id": user_id}
+        if role is not None:
+            sets.append("role = :role")
+            params["role"] = role
+        if account_status is not None:
+            sets.append("account_status = :status")
+            params["status"] = account_status
+        if not sets:
+            return
+        sets.append("updated_at = :ua")
+        params["ua"] = _now_iso()
+        await self._s.execute(
+            text(f"UPDATE users SET {', '.join(sets)} WHERE id = :id"),
+            params,
+        )
+
+    async def revoke_all_sessions_for_user(self, user_id: str) -> int:
+        """Revoke every active session for a user. Returns the number revoked."""
+        result = await self._s.execute(
+            text("UPDATE sessions SET revoked = 1, revoked_at = :ts"
+                 " WHERE user_id = :uid AND revoked = 0"),
+            {"uid": user_id, "ts": _now_iso()},
+        )
+        return int(cast(CursorResult, result).rowcount)
+
+    async def delete_user(self, user_id: str) -> None:
+        """Permanently remove a user. Sessions cascade-delete via the schema."""
+        await self._s.execute(
+            text("DELETE FROM users WHERE id = :id"),
+            {"id": user_id},
+        )
 
 
 def _order_from_row(row):

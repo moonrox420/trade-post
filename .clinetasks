@@ -1,0 +1,747 @@
+FRONTEND + AUTHENTICATION MISSION — ADD A REAL USER LOGIN SYSTEM
+
+Application: DROX Trading Post (`trading_post`). Priority: Critical / Blocking.
+
+Add a complete, elite-production-grade user authentication system to `trading_post`.
+
+This is NOT a visual mockup.
+
+The login must actually authenticate users, establish an authenticated session, protect the dashboard, and integrate cleanly with the existing backend and frontend.
+
+============================================================
+PRESERVE THE EXISTING DESIGN
+============================================================
+
+DO NOT redesign the existing interface.
+
+Keep the current:
+
+- cyberpunk / neon-carbon aesthetic
+- HUD styling
+- animations
+- particles
+- typography
+- glow effects
+- transitions
+- terminal aesthetic
+- visual hierarchy
+- specific existing fonts: Orbitron, JetBrains Mono, Rajdhani, Chakra Petch, Exo 2
+- scanlines
+- tech-brackets
+- HUD header and sidebar
+- the existing `.login-overlay` and `.login-card` structure already present in `index.html`
+
+The login screen should feel like it belongs to the existing application.
+
+Do not turn it into a generic corporate login page.
+
+Build the authentication UI using the existing design language.
+
+Do not create a second login page or redesign the card.
+
+============================================================
+SECURITY FIRST
+============================================================
+
+Inspect the existing backend architecture before implementing authentication.
+
+Do not invent an authentication architecture without checking the repository first.
+
+Implement proper authentication rather than frontend-only protection.
+
+The browser must NEVER be trusted to determine whether a user is authenticated.
+
+The backend must enforce authentication on protected resources.
+
+============================================================
+CURRENT ARCHITECTURE — READ FIRST
+============================================================
+
+Before writing any code, inspect these existing files thoroughly:
+
+- `server.py` / api — existing FastAPI routes and the current (stub) WebSocket
+- `auth.py` — already contains `hash_password`, `verify_password`, `new_session_id`, `session_expiry`
+- `repository.py` — already has user + session methods
+- `migrations.py` — already defines `users` and `sessions` tables
+- `config.py` — `session_ttl_minutes`, `session_secret`, bootstrap settings
+- `runtime.py` / Orchestrator — background loops that must respect auth state
+- `index.html` — existing login overlay + HUD that must be reused, not replaced
+
+The application already has partial auth scaffolding. Complete and harden it. Do not start from zero.
+
+Respect the current Repository, Settings, Orchestrator, domain models, and error hierarchy. Extend — do not rewrite.
+
+============================================================
+USER ACCOUNT MODEL
+============================================================
+
+Create a proper user/account model backed by PostgreSQL.
+
+Evaluate the existing schema before creating anything.
+
+At minimum support:
+
+- unique user ID
+- username or email
+- password hash
+- account status
+- created timestamp
+- updated timestamp
+- last login timestamp
+- role/authorization level
+- authentication/session state as appropriate
+- failed login count
+- locked-until timestamp (nullable, for temporary lockout)
+
+Roles are, at minimum: viewer | operator | admin.
+
+Do NOT store plaintext passwords.
+
+Use a modern password hashing algorithm such as Argon2id or an equally appropriate password-hashing implementation already supported by the project.
+
+The existing implementation in `auth.py` already uses PBKDF2-HMAC-SHA256. Upgrade to Argon2id only if it is already available as a dependency; otherwise harden and reuse the existing implementation rather than introducing a competing one.
+
+Never log passwords.
+
+Never return password hashes through an API.
+
+Never return session tokens in a login response body either — a session token belongs only in the HttpOnly cookie, never in a JSON payload.
+
+============================================================
+SESSION AUTHENTICATION
+============================================================
+
+Use secure server-side authentication/session semantics appropriate to this application.
+
+Prefer secure HTTP-only cookies for browser authentication rather than exposing long-lived authentication tokens to JavaScript.
+
+Cookies should use appropriate:
+
+- HttpOnly
+- Secure
+- SameSite
+- expiration/max-age
+
+settings based on the actual deployment environment.
+
+Sessions should be:
+
+- server-generated using a cryptographically random session ID
+- stored server-side only
+- bound to user, issued_at, expires_at, IP address, and user-agent
+- revocable
+
+Implement session expiration.
+
+Implement logout/session invalidation.
+
+Do not store authentication secrets in localStorage unless there is a compelling, explicitly justified reason.
+
+============================================================
+AUTHENTICATION ENDPOINTS
+============================================================
+
+Implement real backend endpoints for:
+
+- login
+- logout
+- current authenticated user/session
+- session validation
+
+Concrete route suggestions (adapt to existing routing conventions):
+
+- POST /api/v1/auth/login — no auth required; validates credentials, creates session, sets cookie
+- POST /api/v1/auth/logout — auth required; revokes session, clears cookie
+- GET /api/v1/me — auth required; returns current user identity (username + role only)
+
+Evaluate whether registration should be enabled.
+
+DO NOT automatically expose public registration if this is intended to be an operator-controlled trading system.
+
+If registration is not appropriate, implement an administrator/bootstrap mechanism instead.
+
+Do not create an unauthenticated account-creation endpoint that allows anyone to create trading accounts.
+
+============================================================
+AUTHORIZATION
+============================================================
+
+Authentication and authorization are separate concerns.
+
+Implement roles/permissions appropriate to the actual application.
+
+At minimum evaluate:
+
+- viewer
+- operator
+- administrator
+
+Trading controls must not automatically be available to every authenticated user.
+
+Protect high-impact operations such as:
+
+- emergency kill switch
+- autonomous trading start/stop
+- manual order submission
+- configuration changes
+- account administration
+- exchange configuration
+
+Use backend authorization checks.
+
+Do not rely on hidden buttons as security.
+
+Authorization matrix (minimum baseline):
+
+Capability                              | viewer | operator | admin
+View dashboard / portfolio / signals    |   yes  |   yes    |  yes
+Subscribe / unsubscribe market feeds    |   no   |   yes    |  yes
+Start / Stop Autonomous                 |   no   |   yes    |  yes
+Emergency Kill Switch                   |   no   |   yes    |  yes
+Manual order / analyze                  |   no   |   yes    |  yes
+User management / config                |   no   |   no     |  yes
+
+All authorization checks must occur on the backend. Frontend hiding of buttons/controls is not security.
+
+============================================================
+DASHBOARD PROTECTION
+============================================================
+
+The entire trading dashboard must require authentication.
+
+Unauthenticated users should receive the login interface.
+
+Authenticated users should receive the dashboard.
+
+Authentication state should be checked when the page loads.
+
+If the session expires while the dashboard is open:
+
+- detect the unauthorized response
+- stop sensitive operations
+- disconnect/restrict live data as appropriate
+- display a clear session-expired state
+- return the user to login
+
+Do not leave an apparently live trading dashboard running after authentication has expired.
+
+============================================================
+LOGIN EXPERIENCE
+============================================================
+
+Create a login screen that matches the existing visual design.
+
+Include:
+
+- username/email field
+- password field
+- show/hide password control
+- login button
+- loading state
+- authentication error state
+- session state
+
+Do NOT reveal whether a specific username/email exists.
+
+Use generic authentication failure messaging.
+
+Example:
+
+"Invalid credentials."
+
+rather than:
+
+"That username exists but the password is wrong."
+
+Do not leak authentication information.
+
+Reuse the existing `.login-overlay` and `.login-card` structure already present in `index.html`. Do not create a second login page or redesign the card.
+
+============================================================
+LOGIN ANIMATION
+============================================================
+
+Use the existing animation language.
+
+The transition from:
+
+LOGIN
+→
+AUTHENTICATING
+→
+AUTHENTICATED
+→
+TRADING COCKPIT
+
+should feel intentional and fit the existing HUD aesthetic.
+
+Do not introduce unrelated visual effects.
+
+============================================================
+USER IDENTITY IN DASHBOARD
+============================================================
+
+Once authenticated, show a subtle operator identity indicator in the existing HUD.
+
+For example:
+
+OPERATOR
+username
+
+or:
+
+SESSION
+ACTIVE
+
+Do not expose sensitive account information.
+
+Provide a logout control.
+
+============================================================
+WEBSOCKET AUTHENTICATION
+============================================================
+
+Audit the existing WebSocket implementation.
+
+A user must not be able to bypass HTTP authentication simply by connecting directly to the WebSocket endpoint.
+
+Ensure WebSocket connections are authenticated.
+
+If cookie-based authentication is used, validate the authenticated session during WebSocket establishment.
+
+The control WebSocket endpoint (e.g. `/ws/control`) must validate the session cookie (or equivalent) on connection.
+
+Unauthorized WebSocket connections must be rejected.
+
+Reject unauthenticated connections with close code 4001 or 1008.
+
+If the authenticated session expires, handle the WebSocket appropriately — close the socket cleanly and do not accept further commands from it.
+
+============================================================
+API AUTHENTICATION
+============================================================
+
+Audit every existing API endpoint.
+
+Classify endpoints as:
+
+PUBLIC
+AUTHENTICATED
+OPERATOR
+ADMIN
+
+API surface classification (example mapping — adapt to actual routes):
+
+Category      | Examples                                                    | Required Auth Level
+Public        | /health, /metrics (if enabled)                              | None
+Authenticated | /api/v1/me, portfolio, orders, events, AI decisions (read)  | Any valid session
+Operator      | Kill, Start/Stop Auto, Subscribe, Analyze                   | operator or admin
+Admin         | User management, config changes                             | admin only
+
+Every existing endpoint must be audited and correctly classified. No sensitive data may remain unprotected.
+
+Do not simply put authentication on the dashboard route and leave trading endpoints exposed.
+
+Protect:
+
+- account data
+- balances
+- positions
+- orders
+- trades
+- PnL
+- risk state
+- system controls
+- trading controls
+- configuration
+- audit information
+
+Health/readiness endpoints may remain appropriately public if required for deployment, but do not expose sensitive internal information through them.
+
+============================================================
+CSRF
+============================================================
+
+If authentication uses cookies, implement appropriate CSRF protection for state-changing browser requests.
+
+Protect operations such as:
+
+- order submission
+- kill switch
+- start/stop trading
+- configuration changes
+- logout where appropriate
+
+Do not assume SameSite alone is sufficient for every deployment architecture.
+
+============================================================
+BRUTE-FORCE PROTECTION
+============================================================
+
+Protect login against brute-force attempts.
+
+Implement appropriate:
+
+- rate limiting
+- failed-login throttling
+- temporary lockout/backoff where appropriate
+
+Reuse the existing `login_max_attempts_per_ip` and `login_lockout_minutes` settings where present rather than introducing parallel configuration.
+
+Do not create an easy denial-of-service vector by permanently locking accounts after trivial failures.
+
+Never permanently lock an account without administrator intervention.
+
+Use IP/user-based controls carefully.
+
+Do not log passwords.
+
+============================================================
+SECURITY HEADERS
+============================================================
+
+Audit the application's security headers.
+
+Evaluate:
+
+- Content-Security-Policy
+- X-Content-Type-Options
+- Referrer-Policy
+- frame protection
+- permissions policy
+- secure cookie configuration
+
+Do not blindly add a CSP that breaks the existing dashboard's scripts/styles.
+
+Do not apply a CSP that breaks Chart.js, Google Fonts, or the existing inline scripts unless the HTML is updated accordingly to remain compatible.
+
+Make it compatible with the actual application.
+
+============================================================
+PASSWORD MANAGEMENT
+============================================================
+
+Implement secure password policy appropriate to the application.
+
+Do not impose arbitrary complexity requirements that encourage weak password reuse.
+
+Prefer a reasonable minimum length and secure password hashing.
+
+If password changes are implemented, require the authenticated user to prove knowledge of the current password before changing it unless an administrator reset flow is being used.
+
+============================================================
+ADMIN / BOOTSTRAP
+============================================================
+
+Determine how the first administrator account should be created.
+
+Do NOT hard-code credentials.
+
+Do NOT put default production credentials in source code.
+
+A secure bootstrap mechanism may use an explicitly configured environment variable or a one-time initialization command.
+
+Prefer a `DROX_ADMIN_PASSWORD`-style environment variable for first-run bootstrap if an equivalent pattern already exists in the Orchestrator.
+
+If no admin exists and no bootstrap environment variable is set, generate a one-time random password and log it once at WARNING level, following the existing implemented pattern.
+
+Document the bootstrap process.
+
+============================================================
+AUDIT LOGGING
+============================================================
+
+Authentication events must integrate with the application's audit system.
+
+Record appropriate events such as:
+
+- login success
+- login failure
+- logout
+- session expiration
+- account creation
+- password change
+- authorization failure
+- administrative action
+
+Where the codebase already uses snake_case event identifiers, align with the existing convention, e.g.:
+
+- login_success
+- login_failure
+- logout
+- session_expired
+- authorization_denied
+- kill_switch_requested (already partially present — extend, do not duplicate)
+
+Do not put passwords, session tokens, or sensitive credentials into audit records.
+
+Include trace/correlation IDs where the application supports them.
+
+============================================================
+FRONTEND AUTH STATE
+============================================================
+
+Create a single authoritative frontend authentication state.
+
+States should include:
+
+CHECKING_SESSION
+AUTHENTICATED
+UNAUTHENTICATED
+AUTHENTICATING
+SESSION_EXPIRED
+AUTH_ERROR
+
+Do not scatter authentication flags throughout the page.
+
+The dashboard should render based on authenticated state.
+
+============================================================
+PROTECT LIVE DATA
+============================================================
+
+Do not establish live trading WebSocket connections until authentication has been established.
+
+Do not start sensitive polling before authentication.
+
+Do not fetch:
+
+- balances
+- positions
+- orders
+- trades
+- PnL
+- account information
+
+for unauthenticated users.
+
+============================================================
+LOGOUT
+============================================================
+
+Logout must be real.
+
+On logout:
+
+1. Invalidate the server-side session.
+2. Close WebSocket connections.
+3. Stop live-data subscriptions.
+4. Clear client authentication state.
+5. Clear sensitive client-side state.
+6. Return to the login screen.
+
+Do not merely hide the dashboard.
+
+============================================================
+SESSION EXPIRATION
+============================================================
+
+Handle expiration gracefully.
+
+If an API request returns unauthorized:
+
+- update authentication state
+- stop sensitive operations
+- disconnect live trading data
+- display a session-expired message
+- redirect/show login
+
+Avoid redirect loops.
+
+============================================================
+ERROR HANDLING
+============================================================
+
+Authentication failures must not crash the application.
+
+Handle:
+
+- invalid credentials
+- server unavailable
+- database unavailable
+- expired session
+- malformed responses
+- rate limiting
+- authorization failures
+- network interruption
+
+Give the operator useful but non-sensitive feedback.
+
+============================================================
+VISUAL INTEGRATION
+============================================================
+
+The login page must look like it was always part of the existing application.
+
+Use the existing:
+
+- colors
+- fonts
+- borders
+- glow
+- panels
+- animations
+- transitions
+- HUD elements
+- specific existing fonts: Orbitron, JetBrains Mono, Rajdhani, Chakra Petch, Exo 2
+- scanlines
+- particle system
+- tech-brackets
+- HUD header and sidebar
+
+Do not introduce a completely separate design system.
+
+The application should feel like:
+
+LOGIN TERMINAL
+        ↓
+AUTHENTICATION
+        ↓
+TRADING POST COCKPIT
+
+============================================================
+MODEL / PROVIDER PRIVACY
+============================================================
+
+Authentication work must NOT reintroduce or expose internal AI implementation details.
+
+Do not display:
+
+- AI model names
+- Ollama model names
+- cloud model names
+- provider names
+- prompt information
+- internal AI routing
+
+The authenticated operator only needs capability/status information.
+
+============================================================
+DATABASE
+============================================================
+
+Use the canonical PostgreSQL database.
+
+Use the existing migration system (`migrations.py`). Do not invent a parallel schema.
+
+Add proper migrations for:
+
+- users
+- sessions/authentication state
+- roles/permissions
+- authentication audit events
+
+Do not modify the database manually outside the application's migration system.
+
+Use appropriate indexes and constraints.
+
+============================================================
+TESTING
+============================================================
+
+Add tests for:
+
+- valid login
+- invalid login
+- logout
+- expired session
+- unauthorized API access
+- authorized API access
+- unauthorized WebSocket access
+- authorized WebSocket access
+- role-based authorization
+- password hashing
+- password verification
+- brute-force/rate-limit behavior
+- CSRF protection
+- session invalidation
+- administrative controls
+
+Verify that authentication cannot be bypassed by calling backend endpoints directly.
+
+============================================================
+FINAL SECURITY AUDIT
+============================================================
+
+After implementation, search the entire repository for:
+
+- plaintext passwords
+- hard-coded credentials
+- default passwords
+- exposed session tokens
+- secrets in JavaScript
+- secrets in HTML
+- authentication bypasses
+- unprotected trading endpoints
+- unprotected WebSockets
+- client-only authorization
+- model/provider names exposed in UI
+
+Fix every relevant issue found.
+
+============================================================
+RECOMMENDED IMPLEMENTATION ORDER
+============================================================
+
+1. Audit existing users/sessions tables and `auth.py` / `repository.py` methods.
+2. Harden and complete the login / logout / me endpoints.
+3. Enforce authentication middleware/dependency on all protected routes.
+4. Protect the WebSocket handshake.
+5. Wire the frontend auth state machine to the real endpoints (reuse the existing overlay).
+6. Add role checks on high-impact commands.
+7. Add brute-force protection and audit events.
+8. Write tests.
+9. Final security sweep (search for secrets, bypasses, exposed tokens).
+
+============================================================
+OUT OF SCOPE — DO NOT IMPLEMENT
+============================================================
+
+- Public self-registration
+- OAuth / social login
+- Multi-factor authentication (unless already partially present)
+- Password reset via email
+- Redesign of any visual component
+- Exposure of AI model names or internal routing
+- Storing sessions in localStorage or exposing tokens to JavaScript
+
+============================================================
+FINAL ACCEPTANCE CRITERIA
+============================================================
+
+The feature is complete only when:
+
+- A user can actually log in.
+- Credentials are securely verified.
+- Sessions are securely established.
+- The dashboard is inaccessible without authentication.
+- APIs enforce authentication server-side.
+- WebSockets enforce authentication.
+- Authorization is enforced server-side.
+- Trading controls require appropriate authorization.
+- Logout actually invalidates the session.
+- Session expiration is handled correctly.
+- Login attempts are protected against abuse.
+- Authentication events are auditable.
+- PostgreSQL stores the authoritative account/session data.
+- Database migrations exist.
+- No passwords or tokens are exposed.
+- No AI model/provider names are exposed.
+- The existing dashboard design remains intact.
+- The existing animations remain intact.
+- The login experience visually belongs to the existing application.
+- Existing live-data functionality continues to work after authentication.
+- Tests cover both success and failure paths.
+- Direct API/WebSocket access cannot bypass authentication.
+
+Do not create a fake login screen.
+
+Build the actual authentication system end-to-end.
+
+Start by inspecting the existing backend, database architecture, API routes, WebSocket implementation, and `index.html`.
+
+Do not deliver a partial or "looks like it works" solution.
+
+Do not ignore the existing design system.
+
+Do not invent a parallel authentication architecture when the scaffolding already exists.

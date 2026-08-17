@@ -7,19 +7,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DROX TRADING POST — Neon-Carbon HUD Terminal</title>
 
-  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
     href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Exo+2:wght@200;300;400;500;600;700&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;700&display=swap"
     rel="stylesheet">
 
-  <!-- HTMX & Chart.js -->
-  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
     /* ═══════════════════════════════════════════════
-       RESET & VARIABLES
+       RESET & DESIGN TOKENS
        ═══════════════════════════════════════════════ */
     *,
     *::before,
@@ -50,8 +47,8 @@
       --red: #FF3B4E;
       --green: #00FF6A;
       --amber: #FFB300;
-      --sidebar-w: 100px;
-      --header-h: 56px;
+      --sidebar-w: 88px;
+      --header-h: 64px;
       --ease-expo: cubic-bezier(0.22, 1, 0.36, 1);
       --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
       --bracket-size: 14px;
@@ -82,7 +79,13 @@
       max-width: 100%;
     }
 
-    /* Scanlines effect */
+    button {
+      font-family: inherit;
+    }
+
+    /* ═══════════════════════════════════════════════
+       ANIMATED BACKGROUND
+       ═══════════════════════════════════════════════ */
     .scanlines {
       position: fixed;
       top: 0;
@@ -93,8 +96,8 @@
       background: repeating-linear-gradient(0deg,
           transparent,
           transparent 2px,
-          rgba(0, 178, 255, 0.008) 2px,
-          rgba(0, 178, 255, 0.008) 4px);
+          rgba(0, 178, 255, 0.015) 2px,
+          rgba(0, 178, 255, 0.015) 4px);
       background-size: 100% 4px;
       animation: scanlines 8s linear infinite;
       z-index: 2000;
@@ -110,51 +113,12 @@
       }
     }
 
-    /* Floating particles background */
-    #particles {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    .particle {
-      position: absolute;
-      width: 2px;
-      height: 2px;
-      background: var(--orange);
-      box-shadow: 0 0 10px var(--orange), 0 0 20px var(--orange);
-      opacity: 0;
-      animation: float-up 20s linear infinite;
-    }
-
-    @keyframes float-up {
-      0% {
-        transform: translateY(100vh) rotate(0deg);
-        opacity: 0;
-      }
-
-      10% {
-        opacity: 0.6;
-      }
-
-      90% {
-        opacity: 0.6;
-      }
-
-      100% {
-        transform: translateY(-10vh) rotate(720deg);
-        opacity: 0;
-      }
-    }
-
-    /* Hexagonal grid background */
     .grid-bg {
       position: fixed;
       inset: 0;
       background-image:
-        radial-gradient(circle at 25% 25%, transparent 2%, rgba(255, 94, 0, 0.015) 2%, rgba(255, 94, 0, 0.015) 3%, transparent 3%),
-        radial-gradient(circle at 75% 75%, transparent 2%, rgba(0, 178, 255, 0.015) 2%, rgba(0, 178, 255, 0.015) 3%, transparent 3%);
+        radial-gradient(circle at 25% 25%, transparent 2%, rgba(255, 94, 0, 0.02) 2%, rgba(255, 94, 0, 0.02) 3%, transparent 3%),
+        radial-gradient(circle at 75% 75%, transparent 2%, rgba(0, 178, 255, 0.02) 2%, rgba(0, 178, 255, 0.02) 3%, transparent 3%);
       background-size: 80px 80px;
       animation: grid-move 60s linear infinite;
       z-index: -2;
@@ -171,7 +135,6 @@
       }
     }
 
-    /* Floating vector shapes */
     .shapes-container {
       position: fixed;
       inset: 0;
@@ -181,7 +144,7 @@
 
     .shape {
       position: absolute;
-      opacity: 0.03;
+      opacity: 0.04;
     }
 
     .shape-circle {
@@ -199,7 +162,7 @@
       height: 0;
       border-left: 150px solid transparent;
       border-right: 150px solid transparent;
-      border-bottom: 260px solid rgba(0, 178, 255, 0.2);
+      border-bottom: 260px solid rgba(0, 178, 255, 0.3);
       top: 55%;
       right: 10%;
       animation: float-rotate 45s ease-in-out infinite reverse;
@@ -235,8 +198,349 @@
       }
     }
 
+    #particles {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .particle {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: var(--orange);
+      box-shadow: 0 0 10px var(--orange), 0 0 20px var(--orange);
+      opacity: 0;
+      animation: float-up 20s linear infinite;
+    }
+
+    @keyframes float-up {
+      0% {
+        transform: translateY(100vh) rotate(0deg);
+        opacity: 0;
+      }
+
+      10% {
+        opacity: 0.8;
+      }
+
+      90% {
+        opacity: 0.8;
+      }
+
+      100% {
+        transform: translateY(-10vh) rotate(720deg);
+        opacity: 0;
+      }
+    }
+
     /* ═══════════════════════════════════════════════
-       SIDEBAR (SIDE-LOADED NAV)
+       LOGIN OVERLAY
+       ═══════════════════════════════════════════════ */
+    .login-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 5000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--carbon);
+      background-image:
+        radial-gradient(ellipse 60% 50% at 50% 50%, rgba(0, 178, 255, 0.06) 0%, transparent 70%),
+        radial-gradient(circle at 30% 80%, rgba(255, 94, 0, 0.04) 0%, transparent 60%);
+      animation: login-fade-in 0.6s var(--ease-expo);
+    }
+
+    .login-overlay.hidden {
+      animation: login-fade-out 0.5s var(--ease-expo) forwards;
+      pointer-events: none;
+    }
+
+    .hidden-by-auth {
+      display: none !important;
+    }
+
+    @keyframes login-fade-in {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes login-fade-out {
+      from {
+        opacity: 1;
+      }
+
+      to {
+        opacity: 0;
+      }
+    }
+
+    .login-card {
+      position: relative;
+      width: min(440px, 90vw);
+      padding: 48px 40px;
+      background: var(--carbon-panel);
+      border: 1px solid var(--carbon-line-bright);
+      animation: login-card-rise 0.7s var(--ease-expo);
+    }
+
+    @keyframes login-card-rise {
+      from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.97);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .login-card::before,
+    .login-card::after {
+      content: '';
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      pointer-events: none;
+    }
+
+    .login-card::before {
+      top: -1px;
+      left: -1px;
+      border-top: 2px solid var(--orange);
+      border-left: 2px solid var(--orange);
+    }
+
+    .login-card::after {
+      bottom: -1px;
+      right: -1px;
+      border-bottom: 2px solid var(--cyan);
+      border-right: 2px solid var(--cyan);
+    }
+
+    .login-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 32px;
+    }
+
+    .login-brand-mark {
+      width: 44px;
+      height: 44px;
+      border: 1px solid var(--orange);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      animation: brand-pulse 3s ease-in-out infinite;
+    }
+
+    @keyframes brand-pulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(255, 94, 0, 0);
+      }
+
+      50% {
+        box-shadow: 0 0 16px 2px rgba(255, 94, 0, 0.4);
+      }
+    }
+
+    .login-brand-mark::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border: 1px solid var(--orange-dim);
+    }
+
+    .login-brand-mark svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .login-brand-text {
+      font-family: 'Orbitron', monospace;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      background: linear-gradient(45deg, var(--orange), var(--cyan));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .login-tagline {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--white-dim);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 32px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--carbon-line);
+    }
+
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .login-field {
+      position: relative;
+    }
+
+    .login-field label {
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--orange);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 8px;
+    }
+
+    .login-field input {
+      width: 100%;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 94, 0, 0.2);
+      color: white;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 14px;
+      letter-spacing: 0.05em;
+      border-radius: 2px;
+      transition: all 0.3s var(--ease-expo);
+    }
+
+    .login-field input:focus {
+      outline: none;
+      border-color: var(--orange);
+      box-shadow: 0 0 20px rgba(255, 94, 0, 0.3);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .login-field--password {
+      position: relative;
+    }
+
+    .login-toggle-password {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      padding: 4px 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      background: transparent;
+      border: 1px solid rgba(0, 178, 255, 0.3);
+      border-radius: 2px;
+      cursor: pointer;
+      transition: all 0.25s var(--ease-expo);
+    }
+
+    .login-toggle-password:hover,
+    .login-toggle-password:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 178, 255, 0.3);
+      outline: none;
+    }
+
+    .login-field input[type="password"],
+    .login-field input[type="text"].login-input-password {
+      padding-right: 56px;
+    }
+
+    .login-submit {
+      margin-top: 8px;
+      padding: 14px;
+      font-family: 'Orbitron', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      background: linear-gradient(45deg, var(--orange), var(--cyan));
+      color: white;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(0, 178, 255, 0.35);
+      transition: all 0.3s var(--ease-expo);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .login-submit:hover {
+      box-shadow: 0 0 30px rgba(0, 178, 255, 0.7);
+      transform: translateY(-1px);
+    }
+
+    .login-submit:active {
+      transform: translateY(0);
+    }
+
+    .login-submit::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: -100%;
+      width: 100%;
+      height: 200%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transform: translateY(-50%);
+      transition: left 0.6s var(--ease-expo);
+    }
+
+    .login-submit:hover::after {
+      left: 100%;
+    }
+
+    .login-error {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--red);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      min-height: 14px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .login-error.show {
+      opacity: 1;
+    }
+
+    .login-hint {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--carbon-line);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--white-dim);
+      letter-spacing: 0.08em;
+      line-height: 1.8;
+    }
+
+    .login-hint code {
+      color: var(--cyan);
+      background: var(--cyan-dim);
+      padding: 1px 5px;
+    }
+
+    /* ═══════════════════════════════════════════════
+       SIDEBAR
        ═══════════════════════════════════════════════ */
     .sidebar {
       position: fixed;
@@ -250,7 +554,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 16px 0 14px;
+      padding: 18px 0 14px;
     }
 
     .sidebar-brand {
@@ -260,7 +564,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 20px;
+      margin-bottom: 24px;
       position: relative;
     }
 
@@ -281,31 +585,35 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
       padding: 8px 0;
-      overflow-y: auto;
     }
 
     .sidebar-icon {
-      width: 44px;
-      height: 44px;
+      width: 48px;
+      height: 48px;
       display: flex;
       align-items: center;
       justify-content: center;
       border: 1px solid transparent;
       cursor: pointer;
-      transition: border-color 0.3s, background 0.3s;
+      transition: all 0.3s var(--ease-expo);
       position: relative;
+      color: var(--white-dim);
     }
 
     .sidebar-icon:hover {
       border-color: var(--carbon-line-bright);
       background: var(--cyan-ghost);
+      color: var(--cyan);
+      transform: translateX(2px);
     }
 
     .sidebar-icon.active {
       border-color: var(--cyan);
       background: var(--cyan-dim);
+      color: var(--cyan);
+      box-shadow: 0 0 20px var(--cyan-dim);
     }
 
     .sidebar-icon.active::before {
@@ -316,22 +624,42 @@
       bottom: 8px;
       width: 2px;
       background: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan);
     }
 
     .sidebar-icon svg {
       width: 18px;
       height: 18px;
-      stroke: var(--white-dim);
+      stroke: currentColor;
       fill: none;
       stroke-width: 1.5;
       stroke-linecap: round;
       stroke-linejoin: round;
-      transition: stroke 0.3s;
     }
 
-    .sidebar-icon:hover svg,
-    .sidebar-icon.active svg {
-      stroke: var(--cyan);
+    .sidebar-icon-label {
+      position: absolute;
+      left: calc(100% + 12px);
+      top: 50%;
+      transform: translateY(-50%) translateX(-8px);
+      background: var(--carbon-up);
+      border: 1px solid var(--carbon-line-bright);
+      padding: 4px 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.3s var(--ease-expo);
+      z-index: 2001;
+    }
+
+    .sidebar-icon:hover .sidebar-icon-label {
+      opacity: 1;
+      transform: translateY(-50%) translateX(0);
     }
 
     .sidebar-status {
@@ -389,19 +717,37 @@
       letter-spacing: 0.03em;
     }
 
-    /* ═══════════════════════════════════════════════
-       MAIN STAGE
-       ═══════════════════════════════════════════════ */
-    .main-stage {
-      margin-left: var(--sidebar-w);
-      min-height: 100vh;
-      overflow-x: hidden;
-      position: relative;
-      z-index: 10;
+    .sidebar-user {
+      margin-top: 10px;
+      padding: 6px 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8px;
+      color: var(--cyan);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .sidebar-logout {
+      margin-top: 4px;
+      padding: 4px 8px;
+      background: transparent;
+      border: 1px solid var(--carbon-line-bright);
+      color: var(--white-dim);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .sidebar-logout:hover {
+      border-color: var(--red);
+      color: var(--red);
     }
 
     /* ═══════════════════════════════════════════════
-       HUD HEADER (STICKY COCKPIT GLASS)
+       HUD HEADER
        ═══════════════════════════════════════════════ */
     .hud-header {
       position: sticky;
@@ -410,30 +756,46 @@
       height: var(--header-h);
       background: linear-gradient(180deg, rgba(6, 7, 8, 0.97) 0%, rgba(6, 7, 8, 0.88) 100%);
       backdrop-filter: blur(12px);
-      clip-path: polygon(0 0, 100% 0, 98% 100%, 40% 100%, 38% 70%, 2% 70%, 0 100%);
       display: flex;
       align-items: center;
-      padding: 0 40px;
+      padding: 0 32px;
       border-bottom: 1px solid var(--carbon-line);
+      box-shadow: 0 0 24px rgba(0, 178, 255, 0.05);
+      position: -webkit-sticky;
+    }
+
+    .hud-header::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -1px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan) 30%, var(--orange) 70%, transparent);
+      opacity: 0.4;
     }
 
     .hud-left {
       display: flex;
       align-items: center;
-      gap: 24px;
+      gap: 20px;
       flex: 1;
+      min-width: 0;
     }
 
     .hud-title {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 14px;
+      font-family: 'Orbitron', monospace;
+      font-size: 15px;
       font-weight: 700;
-      letter-spacing: 0.25em;
+      letter-spacing: 0.2em;
       text-transform: uppercase;
       background: linear-gradient(45deg, var(--orange), var(--cyan));
+      background-clip: text;
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      text-shadow: 0 0 15px rgba(0, 178, 255, 0.2);
+      text-shadow: 0 0 20px rgba(0, 178, 255, 0.3);
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .hud-breadcrumb {
@@ -441,6 +803,9 @@
       font-size: 10px;
       color: var(--white-dim);
       letter-spacing: 0.05em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .hud-breadcrumb span {
@@ -450,7 +815,8 @@
     .hud-right {
       display: flex;
       align-items: center;
-      gap: 20px;
+      gap: 16px;
+      flex-shrink: 0;
     }
 
     .hud-stat {
@@ -460,15 +826,12 @@
       display: flex;
       align-items: center;
       gap: 6px;
+      white-space: nowrap;
     }
 
     .hud-stat .val {
       color: var(--cyan-text);
       font-weight: 500;
-    }
-
-    .hud-stat .warn {
-      color: var(--amber);
     }
 
     .hud-divider {
@@ -484,58 +847,99 @@
       position: relative;
     }
 
-    .tech-bracket::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      pointer-events: none;
-      z-index: 2;
-      border: none;
-      background:
-        linear-gradient(90deg, var(--bracket-color) 0, var(--bracket-color) var(--bracket-size), transparent var(--bracket-size)) no-repeat 0 0 / var(--bracket-size) var(--bracket-w),
-        linear-gradient(180deg, var(--bracket-color) 0, var(--bracket-color) var(--bracket-size), transparent var(--bracket-size)) no-repeat 0 0 / var(--bracket-w) var(--bracket-size),
-        linear-gradient(270deg, var(--bracket-color) 0, var(--bracket-color) var(--bracket-size), transparent var(--bracket-size)) no-repeat 100% 0 / var(--bracket-size) var(--bracket-w),
-        linear-gradient(180deg, var(--bracket-color) 0, var(--bracket-color) var(--bracket-size), transparent var(--bracket-size)) no-repeat 100% 0 / var(--bracket-w) var(--bracket-size);
-    }
-
+    .tech-bracket::before,
     .tech-bracket::after {
       content: '';
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
       pointer-events: none;
       z-index: 2;
-      background:
-        linear-gradient(90deg, var(--bracket-color) 0, var(--bracket-color) var(--bracket-size), transparent var(--bracket-size)) no-repeat 0 100% / var(--bracket-size) var(--bracket-w),
-        linear-gradient(0deg, var(--bracket-color) 0, var(--bracket-color) var(--bracket-size), transparent var(--bracket-size)) no-repeat 0 100% / var(--bracket-w) var(--bracket-size),
-        linear-gradient(270deg, var(--bracket-color) 0, var(--bracket-color) var(--bracket-size), transparent var(--bracket-size)) no-repeat 100% 100% / var(--bracket-size) var(--bracket-w),
-        linear-gradient(0deg, var(--bracket-color) 0, var(--bracket-color) var(--bracket-size), transparent var(--bracket-size)) no-repeat 100% 100% / var(--bracket-w) var(--bracket-size);
+    }
+
+    .tech-bracket::before {
+      top: 0;
+      left: 0;
+      width: var(--bracket-size);
+      height: var(--bracket-w);
+      background: var(--bracket-color);
+      box-shadow: 0 0 6px var(--bracket-color);
+    }
+
+    .tech-bracket::after {
+      bottom: 0;
+      right: 0;
+      width: var(--bracket-size);
+      height: var(--bracket-w);
+      background: var(--bracket-color);
+      box-shadow: 0 0 6px var(--bracket-color);
     }
 
     /* ═══════════════════════════════════════════════
-       SECTION 1: HERO (THE COCKPIT COMMANDS)
+       PAGE LAYOUT & ROUTING
        ═══════════════════════════════════════════════ */
-    .hero-core {
+    .main-stage {
+      margin-left: var(--sidebar-w);
+      min-height: 100vh;
+      overflow-x: hidden;
       position: relative;
-      padding: 60px 48px;
+      z-index: 10;
+    }
+
+    .page {
+      display: none;
+      padding: 32px;
+      animation: page-enter 0.5s var(--ease-expo);
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    @keyframes page-enter {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ═══════════════════════════════════════════════
+       PAGE-SPECIFIC HERO (dashboard page)
+       ═══════════════════════════════════════════════ */
+    .hero {
+      position: relative;
+      padding: 64px 48px;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       min-height: 280px;
       overflow: hidden;
+      margin-bottom: 24px;
+      animation: hero-enter 0.8s var(--ease-expo);
     }
 
-    .hero-core-bg {
+    @keyframes hero-enter {
+      from {
+        opacity: 0;
+        transform: scale(0.98);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .hero-bg {
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(ellipse 50% 60% at 50% 50%, rgba(0, 178, 255, 0.05) 0%, transparent 70%),
-        radial-gradient(circle at 15% 75%, rgba(255, 94, 0, 0.04) 0%, transparent 60%);
+        radial-gradient(ellipse 50% 60% at 50% 50%, rgba(0, 178, 255, 0.08) 0%, transparent 70%),
+        radial-gradient(circle at 15% 75%, rgba(255, 94, 0, 0.05) 0%, transparent 60%);
       pointer-events: none;
     }
 
@@ -546,7 +950,7 @@
         linear-gradient(90deg, var(--carbon-line) 1px, transparent 1px),
         linear-gradient(180deg, var(--carbon-line) 1px, transparent 1px);
       background-size: 80px 80px;
-      opacity: 0.25;
+      opacity: 0.3;
       pointer-events: none;
       mask-image: radial-gradient(ellipse 60% 70% at 50% 50%, black 20%, transparent 80%);
       -webkit-mask-image: radial-gradient(ellipse 60% 70% at 50% 50%, black 20%, transparent 80%);
@@ -556,7 +960,6 @@
       text-align: center;
       position: relative;
       z-index: 2;
-      width: 100%;
     }
 
     .hero-tag {
@@ -566,7 +969,20 @@
       letter-spacing: 0.4em;
       text-transform: uppercase;
       color: var(--orange);
-      margin-bottom: 12px;
+      margin-bottom: 14px;
+      animation: hero-tag-flicker 4s ease-in-out infinite;
+    }
+
+    @keyframes hero-tag-flicker {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.7;
+      }
     }
 
     .hero-title {
@@ -577,14 +993,14 @@
       line-height: 0.95;
       color: #ffffff;
       text-shadow:
-        0 0 20px rgba(0, 178, 255, 0.4),
-        0 0 50px rgba(0, 178, 255, 0.15);
-      margin-bottom: 12px;
+        0 0 20px rgba(0, 178, 255, 0.5),
+        0 0 50px rgba(0, 178, 255, 0.2);
+      margin-bottom: 14px;
     }
 
     .hero-title span {
       color: var(--orange);
-      text-shadow: 0 0 20px rgba(255, 94, 0, 0.4);
+      text-shadow: 0 0 20px rgba(255, 94, 0, 0.5);
     }
 
     .hero-sub {
@@ -603,60 +1019,48 @@
     /* ═══════════════════════════════════════════════
        BUTTONS
        ═══════════════════════════════════════════════ */
-    .btn-primary {
+    .btn-primary,
+    .btn-danger,
+    .btn-ghost {
       font-family: 'Orbitron', sans-serif;
       font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.15em;
       text-transform: uppercase;
-      padding: 12px 28px;
-      background: linear-gradient(45deg, var(--orange), var(--cyan));
-      color: white;
+      padding: 12px 24px;
       border: none;
       cursor: pointer;
-      box-shadow: 0 0 20px rgba(0, 178, 255, 0.35);
-      transition: box-shadow 0.4s, transform 0.3s var(--ease-expo);
+      transition: all 0.3s var(--ease-expo);
       position: relative;
+      overflow: hidden;
+    }
+
+    .btn-primary {
+      background: linear-gradient(45deg, var(--orange), var(--cyan));
+      color: white;
+      box-shadow: 0 0 20px rgba(0, 178, 255, 0.35);
     }
 
     .btn-primary:hover {
-      box-shadow: 0 0 30px rgba(0, 178, 255, 0.6);
+      box-shadow: 0 0 30px rgba(0, 178, 255, 0.7);
       transform: translateY(-1px);
     }
 
     .btn-danger {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      padding: 12px 28px;
       background: linear-gradient(45deg, var(--red), #800);
       color: white;
-      border: none;
-      cursor: pointer;
       box-shadow: 0 0 20px rgba(255, 59, 78, 0.35);
-      transition: box-shadow 0.4s, transform 0.3s var(--ease-expo);
-      position: relative;
     }
 
     .btn-danger:hover {
-      box-shadow: 0 0 30px rgba(255, 59, 78, 0.6);
+      box-shadow: 0 0 30px rgba(255, 59, 78, 0.7);
       transform: translateY(-1px);
     }
 
     .btn-ghost {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      padding: 12px 28px;
       background: transparent;
       color: var(--orange);
       border: 1px solid var(--orange-dim);
-      cursor: pointer;
-      transition: border-color 0.4s, background 0.4s, color 0.4s;
     }
 
     .btn-ghost:hover {
@@ -665,34 +1069,39 @@
       color: white;
     }
 
-    /* ═══════════════════════════════════════════════
-       DASHBOARD GRID
-       ═══════════════════════════════════════════════ */
-    .dashboard {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 1px;
-      background: var(--carbon-line);
-      padding: 0;
+    .btn-primary::after,
+    .btn-danger::after,
+    .btn-ghost::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: -100%;
+      width: 100%;
+      height: 200%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transform: translateY(-50%);
+      transition: left 0.6s var(--ease-expo);
     }
 
-    .dashboard>* {
-      background: var(--carbon);
+    .btn-primary:hover::after,
+    .btn-danger:hover::after,
+    .btn-ghost:hover::after {
+      left: 100%;
     }
 
     /* ═══════════════════════════════════════════════
-       SECTION 2: THE METRIC GRID (5 Asymmetric Cards)
+       METRIC CARDS GRID
        ═══════════════════════════════════════════════ */
-    .card-grid-zone {
-      grid-column: 1 / -1;
+    .card-grid {
       display: grid;
       grid-template-columns: 1.4fr 0.8fr 0.8fr 1fr;
       grid-template-rows: 240px 220px;
       gap: 1px;
       background: var(--carbon-line);
+      margin-bottom: 24px;
     }
 
-    .card-grid-zone>* {
+    .card-grid>* {
       background: var(--carbon);
     }
 
@@ -757,6 +1166,7 @@
       height: 5px;
       background: var(--cyan);
       border-radius: 1px;
+      animation: pulse-dot 1.5s ease-in-out infinite;
     }
 
     .dash-card:nth-child(1) .card-id .dot,
@@ -771,6 +1181,23 @@
       color: #fff;
       line-height: 1;
       margin-bottom: 6px;
+      transition: color 0.3s;
+    }
+
+    .card-value.flash {
+      animation: value-flash 0.8s var(--ease-expo);
+    }
+
+    @keyframes value-flash {
+      0% {
+        color: var(--cyan);
+        text-shadow: 0 0 24px var(--cyan);
+      }
+
+      100% {
+        color: #fff;
+        text-shadow: none;
+      }
     }
 
     .card-value .unit {
@@ -807,7 +1234,7 @@
       flex: 1;
       background: var(--orange-dim);
       min-height: 4px;
-      transition: background 0.3s;
+      transition: all 0.3s;
       position: relative;
     }
 
@@ -819,10 +1246,6 @@
       right: 0;
       height: 1px;
       background: var(--orange);
-    }
-
-    .dash-card:hover .card-chart-bar {
-      background: rgba(255, 94, 0, 0.2);
     }
 
     .card-ring {
@@ -875,89 +1298,205 @@
 
     .card-tag.up {
       color: var(--green);
-      border-color: rgba(0, 255, 106, 0.3);
+      border-color: rgba(0, 255, 106, 0.4);
     }
 
     .card-tag.down {
       color: var(--red);
-      border-color: rgba(255, 59, 78, 0.3);
+      border-color: rgba(255, 59, 78, 0.4);
     }
 
     .card-tag.neutral {
       color: var(--amber);
-      border-color: rgba(255, 179, 0, 0.3);
+      border-color: rgba(255, 179, 0, 0.4);
     }
 
     /* ═══════════════════════════════════════════════
-       SECTION 3 & 4: SPLIT CORE (LIVE-FEED & TABS)
+       EQUITY CHART (analytics page)
        ═══════════════════════════════════════════════ */
-    .split-interaction-zone {
-      grid-column: 1 / -1;
-      display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 1px;
-      background: var(--carbon-line);
+    .panel {
+      background: var(--carbon-panel);
+      border: 1px solid var(--carbon-line);
+      padding: 24px;
+      margin-bottom: 24px;
+      position: relative;
     }
 
-    .split-interaction-zone>* {
-      background: var(--carbon);
-    }
-
-    /* Live Feed Column */
-    .live-feed-zone {
-      padding: 0;
-      border-right: 1px solid var(--carbon-line);
-    }
-
-    .live-feed-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 20px 24px;
-      border-bottom: 1px solid var(--carbon-line);
-    }
-
-    .live-feed-title {
+    .panel-title {
       font-family: 'Chakra Petch', sans-serif;
       font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.15em;
       text-transform: uppercase;
       color: var(--orange);
+      margin-bottom: 18px;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
 
-    .live-feed-count {
+    .panel-title.cyan {
+      color: var(--cyan);
+    }
+
+    .panel-title::before {
+      content: '';
+      width: 4px;
+      height: 14px;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .chart-container {
+      position: relative;
+      width: 100%;
+      min-height: 320px;
+    }
+
+    /* ═══════════════════════════════════════════════
+       POSITIONS TABLE
+       ═══════════════════════════════════════════════ */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    th {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 9px;
+      font-size: 10px;
       color: var(--white-dim);
+      text-align: left;
+      border-bottom: 1px solid var(--carbon-line-bright);
+      padding: 10px 8px;
+      text-transform: uppercase;
     }
 
-    .live-feed-list {
-      list-style: none;
-      max-height: 250px;
-      overflow-y: auto;
-    }
-
-    .live-feed-item {
-      display: grid;
-      grid-template-columns: 72px 1fr 80px;
-      align-items: center;
-      padding: 14px 24px;
+    td {
+      padding: 12px 8px;
       border-bottom: 1px solid var(--carbon-line);
-      background: transparent;
-      transition: background 0.3s;
-      cursor: default;
+      font-family: 'JetBrains Mono', monospace;
     }
 
-    .live-feed-item:hover {
+    tr {
+      transition: background 0.3s;
+    }
+
+    tbody tr:hover {
       background: var(--orange-ghost);
     }
 
-    .live-feed-item:last-child {
-      border-bottom: none;
+    /* ═══════════════════════════════════════════════
+       SIGNALS PAGE: TICKER TAPE
+       ═══════════════════════════════════════════════ */
+    .ticker-tape {
+      overflow: hidden;
+      background: var(--carbon-panel);
+      border: 1px solid var(--carbon-line);
+      border-left: none;
+      border-right: none;
+      padding: 12px 0;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .ticker-tape::before,
+    .ticker-tape::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      width: 80px;
+      height: 100%;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .ticker-tape::before {
+      left: 0;
+      background: linear-gradient(90deg, var(--carbon), transparent);
+    }
+
+    .ticker-tape::after {
+      right: 0;
+      background: linear-gradient(-90deg, var(--carbon), transparent);
+    }
+
+    .ticker-track {
+      display: flex;
+      gap: 48px;
+      animation: ticker-scroll 60s linear infinite;
+      white-space: nowrap;
+    }
+
+    @keyframes ticker-scroll {
+      from {
+        transform: translateX(0);
+      }
+
+      to {
+        transform: translateX(-50%);
+      }
+    }
+
+    .ticker-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--white-dim);
+    }
+
+    .ticker-symbol {
+      color: var(--cyan);
+      font-weight: 600;
+    }
+
+    .ticker-price {
+      color: var(--white);
+    }
+
+    .ticker-change.up {
+      color: var(--green);
+    }
+
+    .ticker-change.down {
+      color: var(--red);
+    }
+
+    /* ═══════════════════════════════════════════════
+       LIVE FEED (signals page)
+       ═══════════════════════════════════════════════ */
+    .feed-list {
+      list-style: none;
+      max-height: 460px;
+      overflow-y: auto;
+    }
+
+    .feed-item {
+      display: grid;
+      grid-template-columns: 80px 1fr 110px;
+      align-items: center;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--carbon-line);
+      transition: background 0.3s;
+      animation: feed-slide-in 0.4s var(--ease-expo);
+    }
+
+    @keyframes feed-slide-in {
+      from {
+        opacity: 0;
+        transform: translateX(-12px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .feed-item:hover {
+      background: var(--orange-ghost);
     }
 
     .feed-time {
@@ -1002,230 +1541,15 @@
       color: var(--red);
     }
 
-    /* Interactive Tabs Column */
-    .tab-zone {
-      padding: 24px;
+    /* ═══════════════════════════════════════════════
+       CONSOLE (signals page)
+       ═══════════════════════════════════════════════ */
+    .console {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
       display: flex;
       flex-direction: column;
-    }
-
-    .tab-zone-title {
-      font-family: 'Chakra Petch', sans-serif;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--cyan);
-      margin-bottom: 20px;
-    }
-
-    .features-tabs {
-      display: flex;
-      gap: 1px;
-      background: var(--carbon-line);
-      border: 1px solid var(--carbon-line-bright);
-      border-radius: 4px;
-      overflow: hidden;
-      margin-bottom: 20px;
-    }
-
-    .tab-item {
-      flex: 1;
-      padding: 12px 10px;
-      text-align: center;
-      cursor: pointer;
-      background: var(--carbon-panel);
-      transition: all 0.3s ease;
-      font-family: 'Chakra Petch', sans-serif;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--white-dim);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .tab-item:hover {
-      background: var(--cyan-ghost);
-      color: white;
-    }
-
-    .tab-item.active {
-      background: var(--cyan-dim);
-      color: var(--cyan);
-      box-shadow: inset 0 -2px 0 var(--cyan);
-    }
-
-    .tab-icon {
-      font-size: 14px;
-    }
-
-    .tab-content {
-      flex: 1;
-      background: var(--carbon-panel);
       border: 1px solid var(--carbon-line);
-      border-radius: 4px;
-      padding: 24px;
-      min-height: 240px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-
-    .content-panel {
-      display: none;
-      animation: fadeIn 0.4s ease;
-    }
-
-    .content-panel.active {
-      display: block;
-    }
-
-    .content-panel h3 {
-      font-family: 'Orbitron', monospace;
-      font-size: 18px;
-      margin-bottom: 12px;
-      color: #fff;
-    }
-
-    .content-panel p {
-      font-family: 'Exo 2', sans-serif;
-      line-height: 1.7;
-      opacity: 0.75;
-      font-weight: 300;
-      margin-bottom: 16px;
-      font-size: 12px;
-    }
-
-    .feature-list {
-      list-style: none;
-    }
-
-    .feature-list li {
-      font-size: 12px;
-      padding: 6px 0 6px 20px;
-      position: relative;
-      opacity: 0.85;
-    }
-
-    .feature-list li::before {
-      content: '▸';
-      position: absolute;
-      left: 0;
-      color: var(--cyan);
-      font-size: 14px;
-    }
-
-    /* ═══════════════════════════════════════════════
-       SECTION 5: DATA GRID & DUAL LAYOUT
-       ═══════════════════════════════════════════════ */
-    .media-vault-zone {
-      grid-column: 1 / -1;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1px;
-      background: var(--carbon-line);
-    }
-
-    .media-vault-zone>* {
-      background: var(--carbon);
-    }
-
-    /* Live Positions Table Column */
-    .positions-zone {
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      border-right: 1px solid var(--carbon-line);
-    }
-
-    .positions-title {
-      font-family: 'Chakra Petch', sans-serif;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--cyan);
-      margin-bottom: 14px;
-    }
-
-    .positions-table-container {
-      width: 100%;
-      overflow-x: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-    }
-
-    th {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10px;
-      color: var(--white-dim);
-      text-align: left;
-      border-bottom: 1px solid var(--carbon-line-bright);
-      padding: 10px 8px;
-      text-transform: uppercase;
-    }
-
-    td {
-      padding: 10px 8px;
-      border-bottom: 1px solid var(--carbon-line);
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    /* Equity Curve Chart Column */
-    .chart-zone {
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .chart-title {
-      font-family: 'Chakra Petch', sans-serif;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--orange);
-      margin-bottom: 14px;
-    }
-
-    .chart-container {
-      position: relative;
-      flex: 1;
-      min-height: 200px;
-      width: 100%;
-    }
-
-    /* ═══════════════════════════════════════════════
-       SECTION 6 & 7: THE CONSOLE & CONTROL PANEL
-       ═══════════════════════════════════════════════ */
-    .split-console-contact {
-      grid-column: 1 / -1;
-      display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 1px;
-      background: var(--carbon-line);
-    }
-
-    .split-console-contact>* {
-      background: var(--carbon);
-    }
-
-    /* Terminal Console Column */
-    .console-zone {
-      padding: 0;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      display: flex;
-      flex-direction: column;
-      border-right: 1px solid var(--carbon-line);
     }
 
     .console-bar {
@@ -1234,24 +1558,15 @@
       padding: 10px 16px;
       border-bottom: 1px solid var(--carbon-line);
       gap: 8px;
+      background: var(--carbon-up);
     }
 
     .console-bar-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-    }
-
-    .console-bar-dot.r {
-      background: var(--red);
-    }
-
-    .console-bar-dot.y {
-      background: var(--amber);
-    }
-
-    .console-bar-dot.g {
-      background: var(--green);
+      background: var(--cyan);
+      animation: pulse-dot 2s ease-in-out infinite;
     }
 
     .console-bar-title {
@@ -1262,16 +1577,15 @@
     }
 
     .console-body {
-      flex: 1;
       padding: 16px;
       overflow-y: auto;
       line-height: 1.8;
       color: var(--white-dim);
-      height: 320px;
+      height: 360px;
       background: #030303;
     }
 
-    .console-body div {
+    .console-body>div {
       margin-bottom: 4px;
     }
 
@@ -1299,6 +1613,10 @@
       color: var(--green);
     }
 
+    .console-body .err-text {
+      color: var(--red);
+    }
+
     .console-input-row {
       display: flex;
       align-items: center;
@@ -1320,38 +1638,42 @@
       vertical-align: middle;
     }
 
-    /* Control Panel Form Column */
-    .control-panel-zone {
-      padding: 32px;
-      display: flex;
-      flex-direction: column;
+    @keyframes blink {
+
+      0%,
+      50% {
+        opacity: 1;
+      }
+
+      51%,
+      100% {
+        opacity: 0;
+      }
     }
 
-    .control-panel-title {
-      font-family: 'Orbitron', monospace;
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      background: linear-gradient(45deg, #ffffff, var(--orange));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 20px;
+    /* ═══════════════════════════════════════════════
+       CONTROL PAGE
+       ═══════════════════════════════════════════════ */
+    .control-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
     }
 
-    .control-buttons-grid {
+    .control-buttons {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 12px;
-      margin-bottom: 20px;
     }
 
     .subscription-form {
       display: flex;
       flex-direction: column;
       gap: 14px;
-      border-top: 1px solid var(--carbon-line);
+      margin-top: 20px;
       padding-top: 20px;
+      border-top: 1px solid var(--carbon-line);
     }
 
     .form-group {
@@ -1366,7 +1688,7 @@
       font-weight: 500;
       color: var(--orange);
       text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 0.1em;
     }
 
     .form-group input {
@@ -1377,8 +1699,8 @@
       color: white;
       font-family: 'Rajdhani', sans-serif;
       font-size: 13px;
-      border-radius: 4px;
-      transition: all 0.3s ease;
+      border-radius: 2px;
+      transition: all 0.3s var(--ease-expo);
     }
 
     .form-group input:focus {
@@ -1388,17 +1710,72 @@
       background: rgba(255, 255, 255, 0.05);
     }
 
-    .sub-buttons-row {
-      display: flex;
-      gap: 12px;
+    /* ═══════════════════════════════════════════════
+       DECISION LOG (analytics page)
+       ═══════════════════════════════════════════════ */
+    .decision-list {
+      list-style: none;
+      max-height: 480px;
+      overflow-y: auto;
     }
 
-    .sub-buttons-row button {
-      flex: 1;
+    .decision-item {
+      padding: 14px 0;
+      border-bottom: 1px solid var(--carbon-line);
+      display: grid;
+      grid-template-columns: 90px 90px 1fr;
+      gap: 16px;
+      align-items: start;
+      animation: feed-slide-in 0.4s var(--ease-expo);
+    }
+
+    .decision-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--white-dim);
+    }
+
+    .decision-side {
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+    }
+
+    .decision-side.LONG {
+      color: var(--green);
+    }
+
+    .decision-side.SHORT {
+      color: var(--red);
+    }
+
+    .decision-side.FLAT {
+      color: var(--amber);
+    }
+
+    .decision-rationale {
+      font-family: 'Exo 2', sans-serif;
+      font-size: 12px;
+      color: var(--white);
+      line-height: 1.5;
+    }
+
+    .decision-rationale .symbol {
+      color: var(--cyan);
+      font-weight: 600;
+      margin-right: 8px;
+    }
+
+    .decision-rationale .conv {
+      color: var(--orange);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      margin-left: 8px;
     }
 
     /* ═══════════════════════════════════════════════
-       SCROLL REVEAL & FOOTER
+       REVEAL ANIMATIONS
        ═══════════════════════════════════════════════ */
     .reveal {
       opacity: 0;
@@ -1411,6 +1788,29 @@
       transform: translateY(0);
     }
 
+    .stagger-1 {
+      transition-delay: 0.05s;
+    }
+
+    .stagger-2 {
+      transition-delay: 0.1s;
+    }
+
+    .stagger-3 {
+      transition-delay: 0.15s;
+    }
+
+    .stagger-4 {
+      transition-delay: 0.2s;
+    }
+
+    .stagger-5 {
+      transition-delay: 0.25s;
+    }
+
+    /* ═══════════════════════════════════════════════
+       FOOTER
+       ═══════════════════════════════════════════════ */
     footer {
       background: rgba(0, 0, 0, 0.9);
       border-top: 1px solid var(--carbon-line);
@@ -1418,13 +1818,16 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
       position: relative;
       z-index: 10;
     }
 
     .footer-links {
       display: flex;
-      gap: 30px;
+      gap: 24px;
+      flex-wrap: wrap;
     }
 
     .footer-links a {
@@ -1433,7 +1836,7 @@
       font-weight: 500;
       letter-spacing: 0.1em;
       color: var(--orange);
-      transition: all 0.3s ease;
+      transition: color 0.3s, text-shadow 0.3s;
     }
 
     .footer-links a:hover {
@@ -1445,14 +1848,11 @@
       font-family: 'JetBrains Mono', monospace;
       font-size: 9px;
       color: var(--white-dim);
-    }
-
-    .copyright a {
-      color: var(--orange-text);
+      margin: 0;
     }
 
     /* ═══════════════════════════════════════════════
-       HAMBURGER (MOBILE MOBILE)
+       HAMBURGER & MOBILE NAV
        ═══════════════════════════════════════════════ */
     .hamburger {
       display: none;
@@ -1502,7 +1902,6 @@
       justify-content: center;
       gap: 24px;
       padding: 80px 40px;
-      overflow-y: auto;
     }
 
     .mobile-nav.open {
@@ -1519,15 +1918,35 @@
       transition: color 0.3s;
     }
 
-    .mobile-nav a:hover {
+    .mobile-nav a:hover,
+    .mobile-nav a.active {
       color: var(--cyan);
     }
 
     /* ═══════════════════════════════════════════════
-       RESPONSIVE BREAKPOINTS
+       REDUCED MOTION
+       ═══════════════════════════════════════════════ */
+    @media (prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+      }
+
+      .reveal {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    /* ═══════════════════════════════════════════════
+       RESPONSIVE
        ═══════════════════════════════════════════════ */
     @media (max-width: 1100px) {
-      .card-grid-zone {
+      .card-grid {
         grid-template-columns: 1fr 1fr;
         grid-template-rows: auto auto auto;
       }
@@ -1557,38 +1976,15 @@
         grid-row: auto;
       }
 
-      .split-interaction-zone {
+      .control-grid {
         grid-template-columns: 1fr;
-      }
-
-      .live-feed-zone {
-        border-right: none;
-        border-bottom: 1px solid var(--carbon-line);
-      }
-
-      .media-vault-zone {
-        grid-template-columns: 1fr;
-      }
-
-      .positions-zone {
-        border-right: none;
-        border-bottom: 1px solid var(--carbon-line);
-      }
-
-      .split-console-contact {
-        grid-template-columns: 1fr;
-      }
-
-      .console-zone {
-        border-right: none;
-        border-bottom: 1px solid var(--carbon-line);
       }
     }
 
     @media (max-width: 768px) {
       :root {
         --sidebar-w: 0px;
-        --header-h: 48px;
+        --header-h: 56px;
       }
 
       body {
@@ -1605,12 +2001,9 @@
 
       .main-stage {
         margin-left: 0;
-        height: auto;
-        overflow: visible;
       }
 
       .hud-header {
-        clip-path: none;
         padding: 0 16px;
       }
 
@@ -1618,12 +2011,15 @@
         display: none;
       }
 
-      .hero-core {
-        padding: 60px 20px 48px;
-        min-height: 300px;
+      .page {
+        padding: 20px 16px;
       }
 
-      .card-grid-zone {
+      .hero {
+        padding: 40px 20px;
+      }
+
+      .card-grid {
         grid-template-columns: 1fr;
         grid-template-rows: auto;
       }
@@ -1637,7 +2033,7 @@
         grid-row: auto;
       }
 
-      .live-feed-item {
+      .feed-item {
         grid-template-columns: 1fr;
         gap: 4px;
       }
@@ -1664,7 +2060,44 @@
 
 <body>
 
-  <!-- Animated Background Elements -->
+  <!-- LOGIN OVERLAY -->
+  <div class="login-overlay" id="loginOverlay">
+    <form class="login-card" id="loginForm" autocomplete="off">
+      <div class="login-brand">
+        <div class="login-brand-mark">
+          <svg viewBox="0 0 40 40">
+            <polygon points="20,2 38,14 38,26 20,38 2,26 2,14" fill="none" stroke="var(--orange)" stroke-width="2" />
+            <circle cx="20" cy="20" r="3" fill="var(--cyan)" />
+          </svg>
+        </div>
+        <div class="login-brand-text">DROX PORTAL</div>
+      </div>
+
+      <div class="login-tagline" id="loginTagline">// Authenticate to access trading cockpit</div>
+
+      <div class="login-form">
+        <div class="login-field">
+          <label for="loginUsername">Operator ID</label>
+          <input type="text" id="loginUsername" name="username" placeholder="operator_id" autocomplete="username" required>
+        </div>
+        <div class="login-field login-field--password">
+          <label for="loginPassword">Access Key</label>
+          <input type="password" id="loginPassword" name="password" placeholder="••••••••"
+            class="login-input-password" autocomplete="current-password" required>
+          <button type="button" class="login-toggle-password" id="loginTogglePassword" tabindex="-1">Show</button>
+        </div>
+        <button type="submit" class="login-submit" id="loginSubmit">Authenticate</button>
+        <div class="login-error" id="loginError"></div>
+      </div>
+
+      <div class="login-hint" id="loginHint">
+        Secure operator session required.<br>
+        Unauthorized access is logged and prosecuted.
+      </div>
+    </form>
+  </div>
+
+  <!-- ANIMATED BACKGROUND -->
   <div class="grid-bg"></div>
   <div class="scanlines"></div>
   <div class="shapes-container">
@@ -1674,46 +2107,45 @@
   </div>
   <div id="particles"></div>
 
-  <!-- ═══════ SIDEBAR NAVIGATION ═══════ -->
+  <!-- SIDEBAR -->
   <aside class="sidebar" aria-label="Main Navigation">
-    <div class="sidebar-brand">
-      <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-        <polygon points="20,2 38,14 38,26 20,38 2,26 2,14" fill="none" stroke="url(#logoGradient)" stroke-width="2" />
-        <circle cx="20" cy="20" r="3" fill="var(--orange)" />
+    <a href="#dashboard" class="sidebar-brand" title="Drox Portal">
+      <svg viewBox="0 0 40 40">
+        <polygon points="20,2 38,14 38,26 20,38 2,26 2,14" fill="none" stroke="var(--orange)" stroke-width="2" />
+        <circle cx="20" cy="20" r="3" fill="var(--cyan)" />
       </svg>
-    </div>
+    </a>
 
     <nav class="sidebar-icons">
-      <a href="#hero" class="sidebar-icon active" aria-label="Dashboard" title="Dashboard">
+      <a href="#dashboard" class="sidebar-icon" data-route="dashboard" aria-label="Dashboard" title="Dashboard">
         <svg viewBox="0 0 24 24">
           <rect x="3" y="3" width="7" height="7" />
           <rect x="14" y="3" width="7" height="7" />
           <rect x="3" y="14" width="7" height="7" />
           <rect x="14" y="14" width="7" height="7" />
         </svg>
+        <span class="sidebar-icon-label">Dashboard</span>
       </a>
-      <a href="#cards" class="sidebar-icon" aria-label="Analytics" title="Analytics">
+      <a href="#analytics" class="sidebar-icon" data-route="analytics" aria-label="Analytics" title="Analytics">
         <svg viewBox="0 0 24 24">
           <path d="M18 20V10M12 20V4M6 20v-6" />
         </svg>
+        <span class="sidebar-icon-label">Analytics</span>
       </a>
-      <a href="#feed" class="sidebar-icon" aria-label="Feed" title="Live Feed">
+      <a href="#signals" class="sidebar-icon" data-route="signals" aria-label="Signals" title="Signals">
         <svg viewBox="0 0 24 24">
           <path d="M4 11a9 9 0 0 1 9 9" />
           <path d="M4 4a16 16 0 0 1 16 16" />
           <circle cx="5" cy="19" r="1" />
         </svg>
+        <span class="sidebar-icon-label">Signals</span>
       </a>
-      <a href="#positions" class="sidebar-icon" aria-label="Positions" title="Positions & Charts">
-        <svg viewBox="0 0 24 24">
-          <polygon points="5 3 19 12 5 21" />
-        </svg>
-      </a>
-      <a href="#console" class="sidebar-icon" aria-label="Terminal" title="Console">
+      <a href="#control" class="sidebar-icon" data-route="control" aria-label="Control" title="Control">
         <svg viewBox="0 0 24 24">
           <polyline points="4 17 10 11 4 5" />
           <line x1="12" y1="19" x2="20" y2="19" />
         </svg>
+        <span class="sidebar-icon-label">Control</span>
       </a>
     </nav>
 
@@ -1724,58 +2156,54 @@
         <span class="sidebar-status-text">ONLINE</span>
       </div>
       <div class="sidebar-status-uptime" id="uptimeCounter">00:00:00</div>
+      <div class="sidebar-user" id="sidebarUser">—</div>
+      <button class="sidebar-logout" id="sidebarLogout" type="button">Logout</button>
     </div>
   </aside>
 
-  <!-- ═══════ MOBILE NAVIGATION ═══════ -->
+  <!-- MOBILE NAV -->
   <button class="hamburger" aria-label="Toggle Navigation"><span></span><span></span><span></span></button>
-  <nav class="mobile-nav" aria-label="Mobile Navigation">
-    <a href="#hero">Dashboard</a>
-    <a href="#cards">Analytics</a>
-    <a href="#feed">Live Feed</a>
-    <a href="#positions">Positions</a>
-    <a href="#console">Terminal</a>
+  <nav class="mobile-nav" id="mobileNav" aria-label="Mobile Navigation">
+    <a href="#dashboard" data-route="dashboard">Dashboard</a>
+    <a href="#analytics" data-route="analytics">Analytics</a>
+    <a href="#signals" data-route="signals">Signals</a>
+    <a href="#control" data-route="control">Control</a>
   </nav>
 
-  <!-- ═══════ MAIN STAGE ═══════ -->
+  <!-- MAIN STAGE -->
   <main class="main-stage" id="mainStage">
 
-    <!-- COCKPIT HUD HEADER -->
+    <!-- HUD HEADER -->
     <header class="hud-header">
       <div class="hud-left">
         <div class="hud-title">DROX PORTAL</div>
-        <div class="hud-breadcrumb"><span>&gt;</span> main_runtime <span>&gt;</span> trading_cockpit</div>
+        <div class="hud-breadcrumb" id="hudCrumb"><span>&gt;</span> main_runtime <span>&gt;</span> <span
+            id="crumbRoute">dashboard</span></div>
       </div>
       <div class="hud-right">
         <div class="hud-stat">SYS <span class="val" id="sysModeStatus">PAPER</span></div>
         <div class="hud-divider"></div>
         <div class="hud-stat">EXCHANGE <span class="val" id="exchangeIdStatus">BINANCE</span></div>
         <div class="hud-divider"></div>
-        <div class="hud-stat">RISK ENGINE <span class="val" id="riskKilledStatus" style="color:var(--green)">SAFE</span>
-        </div>
+        <div class="hud-stat">RISK <span class="val" id="riskKilledStatus" style="color:var(--green)">SAFE</span></div>
       </div>
     </header>
 
-    <!-- ═══════ HERO SECTION (DASHBOARD SWITCHERS) ═══════ -->
-    <section class="hero-core" id="hero">
-      <div class="hero-core-bg"></div>
-      <div class="hero-grid-lines"></div>
-      <div class="hero-content">
-        <div class="hero-tag">// High-Performance Cyberpunk Trading Post</div>
-        <h1 class="hero-title">DROX<span>—</span>PORTAL</h1>
-        <p class="hero-sub">Local non-blocking trade engine &middot; Underpinned by <strong>Grok 4.20 Reasoning</strong>
-        </p>
+    <!-- ═══════ PAGE: DASHBOARD ═══════ -->
+    <section class="page" id="page-dashboard" data-page="dashboard">
+      <div class="hero">
+        <div class="hero-bg"></div>
+        <div class="hero-grid-lines"></div>
+        <div class="hero-content">
+          <div class="hero-tag">// High-Performance Trading Post</div>
+          <h1 class="hero-title">DROX<span>—</span>PORTAL</h1>
+          <p class="hero-sub">Local trade engine &middot; Powered by <strong>AI Assisted Reasoning</strong>
+          </p>
+        </div>
       </div>
-    </section>
 
-    <!-- ═══════ DASHBOARD INTERACTIVE GRID ═══════ -->
-    <div class="dashboard">
-
-      <!-- SECTION 2: 5 ASYMMETRIC ANALYTIC CARDS -->
-      <div class="card-grid-zone" id="cards">
-
-        <!-- Card 1: Tall left — Account Balance -->
-        <div class="dash-card tech-bracket reveal">
+      <div class="card-grid">
+        <div class="dash-card tech-bracket reveal stagger-1">
           <div class="card-id"><span class="dot"></span> ACCOUNT-EQUITY</div>
           <div class="card-value" id="cardEquity">$0.00 <span class="unit">USDT</span></div>
           <div class="card-chart">
@@ -1788,170 +2216,111 @@
             <div class="card-chart-bar" style="height:60%"></div>
             <div class="card-chart-bar" style="height:80%"></div>
           </div>
-          <div class="card-desc">Current session's real-time adjusted account equity. Initialized on startup and secured
-            by daily drawdown guard.</div>
+          <div class="card-desc">Current session's real-time adjusted account equity. Secured by daily drawdown guard.
+          </div>
           <span class="card-tag neutral" id="cardEquityChange">0% DELTA</span>
         </div>
 
-        <!-- Card 2: Top center-left — Margin Utilization -->
-        <div class="dash-card tech-bracket reveal">
+        <div class="dash-card tech-bracket reveal stagger-2">
           <div class="card-id"><span class="dot"></span> MARGIN-UTIL</div>
-          <div class="card-ring">
-            <span class="card-ring-value" id="cardMarginValue">0%</span>
-          </div>
-          <div class="card-desc" style="text-align:center;margin-top:14px;">Active margin buffer utilization percentage
-          </div>
+          <div class="card-ring"><span class="card-ring-value" id="cardMarginValue">0%</span></div>
+          <div class="card-desc" style="text-align:center;margin-top:14px;">Active margin buffer utilization</div>
         </div>
 
-        <!-- Card 3: Top wide right — Risk Adjusted Equity -->
-        <div class="dash-card tech-bracket reveal">
+        <div class="dash-card tech-bracket reveal stagger-3">
           <div class="card-id"><span class="dot"></span> RISK-ADJUSTED-EQUITY</div>
           <div class="card-value" id="cardRiskEquity">$0.00 <span class="unit">USDT</span></div>
-          <div class="card-desc">USDT balance calculated with 1% total exposure haircut buffer. Keeps trading operations
-            within safe leverage boundaries.</div>
+          <div class="card-desc">USDT balance with 1% total exposure haircut buffer for safe leverage boundaries.</div>
           <span class="card-tag neutral" id="cardRiskStatus">SAFE LIMITS</span>
         </div>
 
-        <!-- Card 4: Bottom center wide — Available Margin -->
-        <div class="dash-card tech-bracket reveal">
+        <div class="dash-card tech-bracket reveal stagger-4">
           <div class="card-id"><span class="dot"></span> AVAILABLE-MARGIN</div>
           <div class="card-value" id="cardAvailableMargin">$0.00 <span class="unit">USDT</span></div>
-          <div class="card-desc">Remaining cash reserves immediately available to back new strategy proposals. Adjusted
-            dynamically.</div>
+          <div class="card-desc">Cash reserves immediately available to back new strategy proposals.</div>
           <span class="card-tag up" id="cardMarginStatus">STABLE</span>
         </div>
 
-        <!-- Card 5: Bottom right — Leverage Target -->
-        <div class="dash-card tech-bracket reveal">
+        <div class="dash-card tech-bracket reveal stagger-5">
           <div class="card-id"><span class="dot"></span> TARGET-LEVERAGE</div>
           <div class="card-value" id="cardTargetLeverage" style="color:var(--amber)">10x</div>
-          <div class="card-desc">Dynamically adjusted leverage set relative to current margin utilization ratios.</div>
+          <div class="card-desc">Dynamically adjusted leverage relative to current margin utilization.</div>
           <span class="card-tag neutral" id="cardLeverageStatus">DYNAMIC</span>
         </div>
+      </div>
+    </section>
 
+    <!-- ═══════ PAGE: ANALYTICS ═══════ -->
+    <section class="page" id="page-analytics" data-page="analytics">
+      <div class="panel reveal">
+        <div class="panel-title">Adjusted Account Equity Curve</div>
+        <div class="chart-container">
+          <canvas id="equityChart"></canvas>
+        </div>
       </div>
 
-      <!-- SECTION 3 & 4: SPLIT CORE (LIVE-FEED & TABS) -->
-      <div class="split-interaction-zone" id="feed">
-
-        <!-- Live Event Stream Column -->
-        <div class="live-feed-zone reveal">
-          <div class="live-feed-header">
-            <div class="live-feed-title"><span class="live-dot"></span> Live Signal &amp; Event Stream</div>
-            <div class="live-feed-count" id="activeTicksCount">0 active symbols</div>
-          </div>
-          <ul class="live-feed-list" id="feedList">
-            <!-- Event elements dynamically append here -->
-            <li class="live-feed-item" id="feedListPlaceholder">
-              <span class="feed-time">--:--:--</span>
-              <span class="feed-event">Connection established. Waiting for server telemetry...</span>
-              <span class="feed-status ok">CONNECTED</span>
-            </li>
-          </ul>
-        </div>
-
-        <!-- Interactive Core Features Column -->
-        <div class="tab-zone reveal">
-          <div class="tab-zone-title">System Execution Controls</div>
-          <div class="features-tabs">
-            <div class="tab-item active" data-tab="strategy">
-              <span class="tab-icon">⚡</span>
-              <span>Autonomous</span>
-            </div>
-            <div class="tab-item" data-tab="security">
-              <span class="tab-icon">🔒</span>
-              <span>Drawdown Guards</span>
-            </div>
-            <div class="tab-item" data-tab="system">
-              <span class="tab-icon">🌐</span>
-              <span>Platform Info</span>
-            </div>
-          </div>
-          <div class="tab-content">
-            <div class="content-panel active" id="strategy">
-              <h3>Active Brain Orchestration</h3>
-              <p>The MultiAgentStrategyBrain uses Grok-4.20 reasoning models to analyze market snapshots, prioritize
-                assets by volatility, and run decentralized rebalances.</p>
-              <ul class="feature-list">
-                <li>Volatility-prioritized asset queue</li>
-                <li>Qualitative LLM evaluations on raw rationales</li>
-                <li>One-click automated weekly reports</li>
-              </ul>
-            </div>
-            <div class="content-panel" id="security">
-              <h3>Drox Safe Risk Protection</h3>
-              <p>Multi-layered risk gates protect the trading account against black swan event damage without manual
-                intervention.</p>
-              <ul class="feature-list">
-                <li>1% Daily drawdown hard shut-down switch</li>
-                <li>Maximum 2% account equity size hard cap per trade</li>
-                <li>Dynamic target leverage adjustment (1x to 10x)</li>
-              </ul>
-            </div>
-            <div class="content-panel" id="system">
-              <h3>Dual Spot/Futures Core</h3>
-              <p>Underpinned by high-performance CCXT adapter layers, supporting sandbox and live integrations across
-                global exchanges.</p>
-              <ul class="feature-list">
-                <li>Non-blocking asynchronous task registries</li>
-                <li>Double-execution idempotency checks</li>
-                <li>Orphan order automatic canceller</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
+      <div class="panel reveal">
+        <div class="panel-title cyan">Active Futures Portfolio Positions</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Side</th>
+              <th>Contracts</th>
+              <th>Notional</th>
+              <th>Entry</th>
+              <th>Mark</th>
+              <th>Liq. Price</th>
+              <th>uPnL</th>
+            </tr>
+          </thead>
+          <tbody id="positionsTable">
+            <tr>
+              <td colspan="8" style="text-align:center;color:var(--white-dim);padding:20px 0;">No active positions found
+                in this session.</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
-      <!-- SECTION 5: LIVE POSITIONS GRID & EQUITY CURVE -->
-      <div class="media-vault-zone" id="positions">
+      <div class="panel reveal">
+        <div class="panel-title">AI Decision Log</div>
+        <ul class="decision-list" id="decisionList">
+          <li class="decision-item">
+            <span class="decision-time">--:--:--</span>
+            <span class="decision-side FLAT">FLAT</span>
+            <span class="decision-rationale">Connection established. Waiting for AI telemetry...</span>
+          </li>
+        </ul>
+      </div>
+    </section>
 
-        <!-- Live Positions Table Column -->
-        <div class="positions-zone reveal">
-          <div class="positions-title">Active Futures Portfolio Positions</div>
-          <div class="positions-table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Symbol</th>
-                  <th>Side</th>
-                  <th>Contracts</th>
-                  <th>Notional</th>
-                  <th>Entry</th>
-                  <th>Mark</th>
-                  <th>Liq. Price</th>
-                  <th>uPnL</th>
-                </tr>
-              </thead>
-              <tbody id="positionsTable">
-                <tr>
-                  <td colspan="8" style="text-align:center; color:var(--white-dim); padding: 20px 0;">No active
-                    positions found in this session.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+    <!-- ═══════ PAGE: SIGNALS ═══════ -->
+    <section class="page" id="page-signals" data-page="signals">
+      <div class="ticker-tape">
+        <div class="ticker-track" id="tickerTrack">
+          <span class="ticker-item"><span class="ticker-symbol">BTC/USDT</span><span class="ticker-price">—</span><span
+              class="ticker-change">—</span></span>
+          <span class="ticker-item"><span class="ticker-symbol">ETH/USDT</span><span class="ticker-price">—</span><span
+              class="ticker-change">—</span></span>
         </div>
-
-        <!-- Equity Curve Chart Column -->
-        <div class="chart-zone reveal">
-          <div class="chart-title">Adjusted Account Equity Curve</div>
-          <div class="chart-container">
-            <canvas id="equityChart"></canvas>
-          </div>
-        </div>
-
       </div>
 
-      <!-- SECTION 6 & 7: SYSTEM CONSOLE & CONTROLS -->
-      <div class="split-console-contact" id="console">
+      <div class="panel reveal">
+        <div class="panel-title">Live Signal &amp; Event Stream</div>
+        <ul class="feed-list" id="feedList">
+          <li class="feed-item" id="feedListPlaceholder">
+            <span class="feed-time">--:--:--</span>
+            <span class="feed-event">Connection established. Waiting for server telemetry...</span>
+            <span class="feed-status ok">CONNECTED</span>
+          </li>
+        </ul>
+      </div>
 
-        <!-- Interactive Terminal Column -->
-        <div class="console-zone">
+      <div class="panel reveal">
+        <div class="console">
           <div class="console-bar">
-            <span class="console-bar-dot r"></span>
-            <span class="console-bar-dot y"></span>
-            <span class="console-bar-dot g"></span>
+            <span class="console-bar-dot live"></span>
             <span class="console-bar-title">drox-trade-post — execution_log — 80×24</span>
           </div>
           <div class="console-body" id="log">
@@ -1964,450 +2333,647 @@
             <span class="console-cursor"></span>
           </div>
         </div>
+      </div>
+    </section>
 
-        <!-- Control Form Column -->
-        <div class="contact-zone" id="contact">
-          <h2 class="contact-title">Operator Control Panel</h2>
-
-          <div class="control-buttons-grid">
-            <button class="btn-danger" type="button" onclick="killSwitch()">EMERGENCY KILL</button>
-            <button class="btn-primary" type="button" onclick="startAuto()">START AUTONOMOUS</button>
-            <button class="btn-ghost" type="button" onclick="stopAuto()">STOP AUTONOMOUS</button>
-            <button class="btn-ghost" type="button" onclick="analyzeBTC()">ANALYZE BTC</button>
+    <!-- ═══════ PAGE: CONTROL ═══════ -->
+    <section class="page" id="page-control" data-page="control">
+      <div class="control-grid">
+        <div class="panel reveal">
+          <div class="panel-title">Operator Control Panel</div>
+          <div class="control-buttons">
+            <button class="btn-danger" type="button" data-cmd="KILL" data-require-role="operator admin">EMERGENCY KILL</button>
+            <button class="btn-primary" type="button" data-cmd="START_AUTO" data-require-role="operator admin">START AUTONOMOUS</button>
+            <button class="btn-ghost" type="button" data-cmd="STOP_AUTO" data-require-role="operator admin">STOP AUTONOMOUS</button>
+            <button class="btn-ghost" type="button" data-cmd="ANALYZE" data-symbol="BTC/USDT" data-require-role="operator admin">ANALYZE BTC</button>
           </div>
-
-          <form class="subscription-form" id="subscriptionForm" onsubmit="event.preventDefault();">
+          <form class="subscription-form" id="subscriptionForm">
             <div class="form-group">
               <label for="symbolInput">Market Feed Subscription</label>
-              <input type="text" id="symbolInput" placeholder="Symbol (e.g. BTC/USDT, ETH/USDT)" required>
+              <input type="text" id="symbolInput" name="symbol" placeholder="Symbol (e.g. BTC/USDT)" autocomplete="off"
+                required>
             </div>
-            <div class="sub-buttons-row">
-              <button class="btn-primary" type="button" onclick="subscribe()">SUBSCRIBE</button>
-              <button class="btn-ghost" type="button" onclick="unsubscribe()">UNSUBSCRIBE</button>
+            <div style="display:flex;gap:12px;">
+              <button class="btn-primary" type="button" data-cmd="SUBSCRIBE" data-require-role="operator admin" style="flex:1;">SUBSCRIBE</button>
+              <button class="btn-ghost" type="button" data-cmd="UNSUBSCRIBE" data-require-role="operator admin" style="flex:1;">UNSUBSCRIBE</button>
             </div>
           </form>
         </div>
 
+        <div class="panel reveal">
+          <div class="panel-title cyan">System Execution Controls</div>
+          <div style="font-family:'Exo 2',sans-serif;font-size:12px;line-height:1.7;color:var(--white-dim);">
+            <p style="margin-bottom:14px;"><strong style="color:var(--cyan);">Active Brain Orchestration.</strong> The
+              MultiAgentStrategyBrain uses Ollama reasoning models to analyze market snapshots, prioritize assets by
+              volatility, and run decentralized rebalances.</p>
+            <ul style="list-style:none;padding:0;">
+              <li style="padding:6px 0 6px 20px;position:relative;"><span
+                  style="position:absolute;left:0;color:var(--cyan);">▸</span> Volatility-prioritized asset queue</li>
+              <li style="padding:6px 0 6px 20px;position:relative;"><span
+                  style="position:absolute;left:0;color:var(--cyan);">▸</span> Qualitative LLM evaluations on raw
+                rationales</li>
+              <li style="padding:6px 0 6px 20px;position:relative;"><span
+                  style="position:absolute;left:0;color:var(--cyan);">▸</span> One-click automated weekly reports</li>
+            </ul>
+            <p style="margin-top:14px;"><strong style="color:var(--orange);">Drox Safe Risk Protection.</strong>
+              Multi-layered risk gates protect against black swan event damage without manual intervention.</p>
+            <ul style="list-style:none;padding:0;">
+              <li style="padding:6px 0 6px 20px;position:relative;"><span
+                  style="position:absolute;left:0;color:var(--orange);">▸</span> 1% Daily drawdown hard shut-down switch
+              </li>
+              <li style="padding:6px 0 6px 20px;position:relative;"><span
+                  style="position:absolute;left:0;color:var(--orange);">▸</span> 2% account equity size hard cap per
+                trade</li>
+              <li style="padding:6px 0 6px 20px;position:relative;"><span
+                  style="position:absolute;left:0;color:var(--orange);">▸</span> Dynamic target leverage (1x to 10x)
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
-
-    </div><!-- /.dashboard -->
+    </section>
 
     <!-- FOOTER -->
     <footer>
-      <div class="footer-links">
-        <a href="#hero">Dashboard</a>
-        <a href="#cards">Analytics</a>
-        <a href="#feed">Live Feed</a>
-        <a href="#positions">Positions</a>
-        <a href="#console">Terminal</a>
-      </div>
-      <p class="copyright">© 2026 DROX TRADING POST. All rights reserved. | Built with Neon-Carbon Framework</p>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="#dashboard" data-route="dashboard">Dashboard</a>
+        <a href="#analytics" data-route="analytics">Analytics</a>
+        <a href="#signals" data-route="signals">Signals</a>
+        <a href="#control" data-route="control">Control</a>
+      </nav>
+      <small class="copyright">© 2026 DROX TRADING POST. All rights reserved. | Built with Neon-Carbon Framework</small>
     </footer>
-
   </main>
 
-  <!-- Unified Script Section -->
   <script>
     (function () {
       'use strict';
 
-      const mainStage = document.getElementById('mainStage');
-      const hamburger = document.querySelector('.hamburger');
-      const mobileNav = document.querySelector('.mobile-nav');
-      const mobileLinks = document.querySelectorAll('.mobile-nav a');
-      const sidebarIcons = document.querySelectorAll('.sidebar-icon');
-      const revealEls = document.querySelectorAll('.reveal');
+      // ═══════════════════════════════════════════════
+      // AUTH
+      // ═══════════════════════════════════════════════
+      const loginOverlay = document.getElementById('loginOverlay');
+      const loginForm = document.getElementById('loginForm');
+      const loginError = document.getElementById('loginError');
+      const loginTagline = document.getElementById('loginTagline');
+      const loginSubmit = document.getElementById('loginSubmit');
+      const loginUsername = document.getElementById('loginUsername');
+      const loginPassword = document.getElementById('loginPassword');
+      const loginTogglePassword = document.getElementById('loginTogglePassword');
+      const sidebarUser = document.getElementById('sidebarUser');
+      const sidebarLogout = document.getElementById('sidebarLogout');
 
-      // --- Chart.js Layout Configuration ---
-      const ctx = document.getElementById('equityChart').getContext('2d');
-      const equityChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: [],
-          datasets: [{
-            label: 'Total Equity (USDT)',
-            data: [],
-            borderColor: '#00B2FF',
-            backgroundColor: 'rgba(0, 178, 255, 0.05)',
-            borderWidth: 2,
-            tension: 0.1,
-            pointRadius: 1,
-            pointHoverRadius: 5
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: {
-              ticks: { color: '#8A8F99', font: { family: 'JetBrains Mono' } },
-              grid: { color: '#16191d' }
-            },
-            y: {
-              ticks: { color: '#8A8F99', font: { family: 'JetBrains Mono' } },
-              grid: { color: '#16191d' }
-            }
-          },
-          plugins: {
-            legend: { display: false }
+      let authState = 'checking'; // 'checking' | 'authenticated' | 'unauthenticated' | 'authenticating' | 'session_expired' | 'auth_error'
+      let currentUser = null;
+      let sessionCheckAbort = null;
+
+      function getCookie(name) {
+        const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+        return match ? decodeURIComponent(match[2]) : null;
+      }
+
+      function deleteCookie(name) {
+        // Mirror backend cookie flags as closely as possible for reliable deletion.
+        const secure = location.protocol === 'https:';
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=${secure ? 'Strict' : 'Lax'}${secure ? '; Secure' : ''}`;
+      }
+
+      function csrfHeader() {
+        const token = getCookie('drox_csrf');
+        return token ? { 'x-csrf-token': token } : {};
+      }
+
+      function isAuthError(response) {
+        return response.status === 401 || response.status === 403;
+      }
+
+      async function apiFetch(url, options = {}) {
+        const headers = {
+          ...csrfHeader(),
+          ...(options.headers || {}),
+        };
+        const controller = new AbortController();
+        const localAbort = options.signal;
+        if (localAbort) {
+          localAbort.addEventListener('abort', () => controller.abort(), { once: true });
+        }
+        const r = await fetch(url, {
+          ...options,
+          credentials: 'include',
+          headers,
+          signal: controller.signal,
+        });
+        if (isAuthError(r) && authState === 'authenticated') {
+          onSessionExpired();
+        }
+        return r;
+      }
+
+      function setAuthState(state, user) {
+        authState = state;
+        if (user) currentUser = user;
+        switch (state) {
+          case 'authenticated':
+            sidebarUser.textContent = currentUser?.username || '—';
+            loginTagline.textContent = '// Authenticated — entering trading cockpit';
+            applyRoleVisibility(currentUser?.role);
+            hideLogin();
+            break;
+          case 'unauthenticated':
+          case 'auth_error':
+            currentUser = null;
+            sidebarUser.textContent = '—';
+            loginTagline.textContent = '// Authenticate to access trading cockpit';
+            applyRoleVisibility(null);
+            showLogin();
+            break;
+          case 'session_expired':
+            currentUser = null;
+            sidebarUser.textContent = '—';
+            loginError.textContent = 'Session expired. Please re-authenticate.';
+            loginError.classList.add('show');
+            applyRoleVisibility(null);
+            showLogin();
+            break;
+          case 'authenticating':
+            loginError.classList.remove('show');
+            break;
+          case 'checking':
+          default:
+            break;
+        }
+      }
+
+      function hasRole(role) {
+        return currentUser && currentUser.role === role;
+      }
+
+      function hasAnyRole(...roles) {
+        return currentUser && roles.includes(currentUser.role);
+      }
+
+      function applyRoleVisibility(role) {
+        document.querySelectorAll('[data-require-role]').forEach(el => {
+          const required = el.dataset.requireRole.split(/\s+/);
+          el.classList.toggle('hidden-by-auth', !required.includes(role));
+        });
+      }
+
+      async function fetchMe() {
+        if (sessionCheckAbort) sessionCheckAbort.abort();
+        sessionCheckAbort = new AbortController();
+        try {
+          const r = await apiFetch('/api/v1/me', { signal: sessionCheckAbort.signal });
+          if (r.ok) return await r.json();
+          return null;
+        } catch (e) {
+          if (e.name === 'AbortError') return null;
+          return null;
+        }
+      }
+
+      async function checkSession() {
+        setAuthState('checking');
+        const user = await fetchMe();
+        if (user) {
+          setAuthState('authenticated', user);
+        } else {
+          setAuthState('unauthenticated');
+        }
+      }
+
+      function onSessionExpired() {
+        if (authState === 'session_expired' || authState === 'unauthenticated') return;
+        // Halt all live-data traffic before returning to the login screen.
+        if (wsSocket) { wsSocket.close(); wsSocket = null; }
+        setAuthState('session_expired');
+      }
+
+      function showLogin() {
+        loginOverlay.classList.remove('hidden');
+        loginOverlay.style.display = 'flex';
+        setTimeout(() => loginUsername.focus(), 200);
+      }
+
+      function hideLogin() {
+        loginOverlay.classList.add('hidden');
+        setTimeout(() => { loginOverlay.style.display = 'none'; }, 500);
+      }
+
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (loginForm.dataset.busy === '1') return;
+        loginForm.dataset.busy = '1';
+        setAuthState('authenticating');
+        loginError.classList.remove('show');
+        const originalText = loginSubmit.textContent;
+        loginSubmit.textContent = 'Authenticating…';
+        loginSubmit.disabled = true;
+
+        const username = loginUsername.value.trim();
+        const password = loginPassword.value;
+
+        try {
+          const r = await apiFetch('/api/v1/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password }),
+          });
+          if (!r.ok) {
+            // Generic failure message; never leak whether the username exists.
+            throw new Error('Invalid credentials.');
           }
+          const user = await r.json();
+          loginPassword.value = '';
+          setAuthState('authenticated', user);
+        } catch (err) {
+          const message = err.name === 'AbortError' ? 'Request cancelled.' : err.message || 'Authentication failed.';
+          loginError.textContent = message;
+          loginError.classList.add('show');
+          loginForm.classList.add('shake');
+          setTimeout(() => loginForm.classList.remove('shake'), 400);
+          setAuthState('auth_error');
+        } finally {
+          loginForm.dataset.busy = '';
+          loginSubmit.textContent = originalText;
+          loginSubmit.disabled = false;
         }
       });
 
-      /* ── Interlink Floating Particles ── */
-      function createParticles() {
-        const particlesContainer = document.getElementById('particles');
-        const particleCount = 20;
+      // Password visibility toggle
+      loginTogglePassword.addEventListener('click', () => {
+        const isHidden = loginPassword.type === 'password';
+        loginPassword.type = isHidden ? 'text' : 'password';
+        loginTogglePassword.textContent = isHidden ? 'Hide' : 'Show';
+        loginTogglePassword.setAttribute('aria-pressed', String(isHidden));
+      });
 
-        for (let i = 0; i < particleCount; i++) {
-          const particle = document.createElement('div');
-          particle.className = 'particle';
-          particle.style.left = Math.random() * 100 + '%';
-          particle.style.animationDelay = Math.random() * 15 + 's';
-          particle.style.animationDuration = (Math.random() * 10 + 15) + 's';
-
-          if (Math.random() > 0.5) {
-            particle.style.setProperty('--particle-color', '#00B2FF');
-            particle.style.background = '#00B2FF';
-          }
-
-          particlesContainer.appendChild(particle);
+      sidebarLogout.addEventListener('click', async () => {
+        try {
+          await apiFetch('/api/v1/auth/logout', { method: 'POST' });
+        } catch (_e) {
+          // Best-effort: still clear client state even if the server is unreachable.
         }
+        if (wsSocket) { wsSocket.close(); wsSocket = null; }
+        deleteCookie('drox_session');
+        deleteCookie('drox_csrf');
+        currentUser = null;
+        authState = 'unauthenticated';
+        location.reload();
+      });
+
+      // ═══════════════════════════════════════════════
+      // HASH ROUTER
+      // ═══════════════════════════════════════════════
+      const ROUTES = ['dashboard', 'analytics', 'signals', 'control'];
+      const pages = {};
+      document.querySelectorAll('.page').forEach(p => pages[p.dataset.page] = p);
+      const sidebarIcons = document.querySelectorAll('.sidebar-icon');
+      const footerLinks = document.querySelectorAll('.footer-links a');
+      const mobileLinks = document.querySelectorAll('.mobile-nav a');
+      const crumbRoute = document.getElementById('crumbRoute');
+
+      function navigate() {
+        const hash = (location.hash || '#dashboard').replace('#', '');
+        const route = ROUTES.includes(hash) ? hash : 'dashboard';
+        Object.entries(pages).forEach(([name, el]) => {
+          el.classList.toggle('active', name === route);
+        });
+        sidebarIcons.forEach(i => i.classList.toggle('active', i.dataset.route === route));
+        footerLinks.forEach(a => a.classList.toggle('active', a.dataset.route === route));
+        mobileLinks.forEach(a => a.classList.toggle('active', a.dataset.route === route));
+        crumbRoute.textContent = route;
+        // re-trigger reveal observer for newly visible page
+        setTimeout(initReveal, 50);
       }
 
-      /* ── Scroll Reveal IntersectionObserver ── */
-      if ('IntersectionObserver' in window) {
-        const revealObs = new IntersectionObserver(function (entries) {
-          entries.forEach(function (entry) {
-            if (entry.isIntersecting) {
-              entry.target.classList.add('visible');
-              revealObs.unobserve(entry.target);
-            }
-          });
-        }, { root: mainStage, threshold: 0.1 });
+      window.addEventListener('hashchange', navigate);
+      document.querySelectorAll('[data-route]').forEach(el => {
+        el.addEventListener('click', () => {
+          // close mobile nav
+          document.querySelector('.mobile-nav').classList.remove('open');
+          document.querySelector('.hamburger').classList.remove('open');
+        });
+      });
 
-        revealEls.forEach(function (el) { revealObs.observe(el); });
-
-        // Backup fallback
-        setTimeout(function () {
-          revealEls.forEach(function (el) { el.classList.add('visible'); });
-        }, 2000);
-      } else {
-        revealEls.forEach(function (el) { el.classList.add('visible'); });
-      }
-
-      /* ── Sidebar Active Highlight ── */
-      const sectionIds = ['hero', 'cards', 'feed', 'positions', 'console'];
-      const sectionEls = sectionIds.map(function (id) { return document.getElementById(id); }).filter(Boolean);
-
-      if ('IntersectionObserver' in window) {
-        const sectionObs = new IntersectionObserver(function (entries) {
-          entries.forEach(function (entry) {
-            if (entry.isIntersecting) {
-              const href = '#' + entry.target.id;
-              sidebarIcons.forEach(function (icon) {
-                icon.classList.toggle('active', icon.getAttribute('href') === href);
-              });
-            }
-          });
-        }, { root: mainStage, threshold: 0.3 });
-
-        sectionEls.forEach(function (sec) { sectionObs.observe(sec); });
-      }
-
-      /* ── Hamburger Menu ── */
-      hamburger.addEventListener('click', function () {
+      // ═══════════════════════════════════════════════
+      // HAMBURGER
+      // ═══════════════════════════════════════════════
+      const hamburger = document.querySelector('.hamburger');
+      const mobileNav = document.getElementById('mobileNav');
+      hamburger.addEventListener('click', () => {
         hamburger.classList.toggle('open');
         mobileNav.classList.toggle('open');
       });
 
-      mobileLinks.forEach(function (link) {
-        link.addEventListener('click', function () {
-          hamburger.classList.remove('open');
-          mobileNav.classList.remove('open');
-        });
-      });
-
-      /* ── Sidebar Smooth Navigation ── */
-      sidebarIcons.forEach(function (icon) {
-        icon.addEventListener('click', function (e) {
-          const href = this.getAttribute('href');
-          if (href && href.length > 1 && href.startsWith('#')) {
-            e.preventDefault();
-            const target = document.querySelector(href);
-            if (target) {
-              target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // ═══════════════════════════════════════════════
+      // REVEAL OBSERVER
+      // ═══════════════════════════════════════════════
+      const revealEls = document.querySelectorAll('.reveal');
+      function initReveal() {
+        if (!('IntersectionObserver' in window)) {
+          revealEls.forEach(el => el.classList.add('visible'));
+          return;
+        }
+        const obs = new IntersectionObserver((entries, o) => {
+          entries.forEach(e => {
+            if (e.isIntersecting) {
+              e.target.classList.add('visible');
+              o.unobserve(e.target);
             }
+          });
+        }, { threshold: 0.1, rootMargin: '0px 0px -10% 0px' });
+        revealEls.forEach(el => {
+          if (!el.classList.contains('visible')) obs.observe(el);
+        });
+      }
+      initReveal();
+
+      // ═══════════════════════════════════════════════
+      // PARTICLES
+      // ═══════════════════════════════════════════════
+      function createParticles() {
+        const container = document.getElementById('particles');
+        for (let i = 0; i < 30; i++) {
+          const p = document.createElement('div');
+          p.className = 'particle';
+          p.style.left = Math.random() * 100 + '%';
+          p.style.animationDelay = Math.random() * 20 + 's';
+          p.style.animationDuration = (Math.random() * 12 + 18) + 's';
+          if (Math.random() > 0.5) {
+            p.style.background = 'var(--cyan)';
+            p.style.boxShadow = '0 0 10px var(--cyan), 0 0 20px var(--cyan)';
           }
-        });
-      });
-
-      /* ── Interactive Tabs ── */
-      const tabs = document.querySelectorAll('.tab-item');
-      const panels = document.querySelectorAll('.content-panel');
-
-      tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-          const tabId = tab.getAttribute('data-tab');
-          tabs.forEach(t => t.classList.remove('active'));
-          panels.forEach(p => p.classList.remove('active'));
-
-          tab.classList.add('active');
-          const activePanel = document.getElementById(tabId);
-          if (activePanel) activePanel.classList.add('active');
-        });
-      });
-
-      /* ── Hero Text Rotator ── */
-      const textSets = document.querySelectorAll('.text-set');
-      let currentIndex = 0;
-      let isAnimating = false;
-
-      function wrapTextInSpans(element) {
-        const text = element.textContent;
-        element.innerHTML = text.split('').map((char, i) =>
-          `<span class="char" style="animation-delay: ${i * 0.05}s">${char === ' ' ? '&nbsp;' : char}</span>`
-        ).join('');
+          container.appendChild(p);
+        }
       }
+      createParticles();
 
-      function animateTextIn(textSet) {
-        const glitchText = textSet.querySelector('.glitch-text');
-        wrapTextInSpans(glitchText);
-        glitchText.setAttribute('data-text', glitchText.textContent);
-      }
-
-      function animateTextOut(textSet) {
-        const chars = textSet.querySelectorAll('.char');
-        chars.forEach((char, i) => {
-          char.style.animationDelay = `${i * 0.02}s`;
-          char.classList.add('out');
-        });
-      }
-
-      function rotateText() {
-        if (isAnimating) return;
-        isAnimating = true;
-
-        const currentSet = textSets[currentIndex];
-        const nextIndex = (currentIndex + 1) % textSets.length;
-        const nextSet = textSets[nextIndex];
-
-        animateTextOut(currentSet);
-
-        setTimeout(() => {
-          currentSet.classList.remove('active');
-          nextSet.classList.add('active');
-          animateTextIn(nextSet);
-
-          currentIndex = nextIndex;
-          isAnimating = false;
-        }, 600);
-      }
-
-      // Initialize Rotator
-      textSets[0].classList.add('active');
-      animateTextIn(textSets[0]);
-      setTimeout(() => {
-        setInterval(rotateText, 5000);
-      }, 4000);
-
-      /* ── Uptime Counter ── */
-      const uptimeEl = document.getElementById('uptimeCounter');
+      // ═══════════════════════════════════════════════
+      // UPTIME
+      // ═══════════════════════════════════════════════
       const startTime = Date.now();
-      setInterval(function () {
+      setInterval(() => {
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
         const h = String(Math.floor(elapsed / 3600)).padStart(2, '0');
         const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
         const s = String(elapsed % 60).padStart(2, '0');
-        uptimeEl.textContent = h + ':' + m + ':' + s + ' uptime';
+        const el = document.getElementById('uptimeCounter');
+        if (el) el.textContent = `${h}:${m}:${s}`;
       }, 1000);
 
-      // Initialize Particles
-      createParticles();
+      // ═══════════════════════════════════════════════
+      // CHART
+      // ═══════════════════════════════════════════════
+      let equityChart = null;
+      function initChart() {
+        const ctx = document.getElementById('equityChart');
+        if (!ctx) return;
+        equityChart = new Chart(ctx.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: [],
+            datasets: [{
+              label: 'Total Equity (USDT)',
+              data: [],
+              borderColor: '#00B2FF',
+              backgroundColor: 'rgba(0, 178, 255, 0.08)',
+              borderWidth: 2,
+              tension: 0.3,
+              fill: true,
+              pointRadius: 2,
+              pointHoverRadius: 6,
+              pointBackgroundColor: '#00B2FF',
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 600, easing: 'easeOutCubic' },
+            scales: {
+              x: { ticks: { color: '#8A8F99', font: { family: 'JetBrains Mono' } }, grid: { color: '#16191d' } },
+              y: { ticks: { color: '#8A8F99', font: { family: 'JetBrains Mono' } }, grid: { color: '#16191d' } },
+            },
+            plugins: { legend: { display: false } },
+          },
+        });
+      }
+      initChart();
 
-      // =========================================================================
-      // Drox Trade Post WebSocket Integration Core
-      // =========================================================================
+      function flashValue(el) {
+        if (!el) return;
+        el.classList.remove('flash');
+        void el.offsetWidth;
+        el.classList.add('flash');
+      }
+
+      // ═══════════════════════════════════════════════
+      // WEBSOCKET
+      // ═══════════════════════════════════════════════
       const tickers = {};
+      const wsScheme = location.protocol === 'https:' ? 'wss' : 'ws';
 
       function formatCurrency(val) {
         return parseFloat(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       }
 
-      function appendConsole(htmlContent) {
+      function appendConsole(html) {
         const log = document.getElementById('log');
+        if (!log) return;
         const div = document.createElement('div');
-        div.innerHTML = htmlContent;
+        div.innerHTML = html;
         log.appendChild(div);
+        while (log.childElementCount > 500) log.firstElementChild.remove();
         log.scrollTop = log.scrollHeight;
       }
 
       function updateTicker(snap) {
         tickers[snap.symbol] = snap.last_price;
         const container = document.getElementById('feedList');
-
-        // Remove placeholder if active
         const placeholder = document.getElementById('feedListPlaceholder');
         if (placeholder) placeholder.remove();
 
-        // Count current symbols
-        document.getElementById('activeTicksCount').textContent = `${Object.keys(tickers).length} active symbols`;
-
-        // Check if item already exists
         let item = document.getElementById(`ticker-${snap.symbol.replace('/', '-')}`);
         if (!item) {
           item = document.createElement('li');
           item.id = `ticker-${snap.symbol.replace('/', '-')}`;
-          item.className = 'live-feed-item';
+          item.className = 'feed-item';
           container.insertBefore(item, container.firstChild);
         }
 
-        const isUp = snap.indicators.rsi < 50; // simple visual proxy
-        const statusClass = isUp ? 'ok' : 'warn';
-        const statusText = isUp ? 'BULLISH' : 'BEARISH';
-
+        const isUp = snap.indicators.rsi < 50;
         item.innerHTML = `
-          <span class="feed-time">${new Date(snap.timestamp).toLocaleTimeString()}</span>
-          <span class="feed-event">Snapshot <code>${snap.symbol}</code> &middot; RSI: ${snap.indicators.rsi.toFixed(2)} &middot; Vol: ${snap.indicators.volatility.toFixed(5)}</span>
-          <span class="feed-source">$${formatCurrency(snap.last_price)}</span>
-          <span class="feed-status ${statusClass}">${statusText}</span>
-        `;
+        <span class="feed-time">${new Date(snap.timestamp).toLocaleTimeString()}</span>
+        <span class="feed-event">Snapshot <code>${snap.symbol}</code> · RSI: ${snap.indicators.rsi.toFixed(2)} · Vol: ${snap.indicators.volatility.toFixed(5)} · $${formatCurrency(snap.last_price)}</span>
+        <span class="feed-status ${isUp ? 'ok' : 'warn'}">${isUp ? 'BULLISH' : 'BEARISH'}</span>
+      `;
+
+        rebuildTickerTape();
+      }
+
+      function rebuildTickerTape() {
+        const track = document.getElementById('tickerTrack');
+        if (!track) return;
+        const symbols = Object.keys(tickers);
+        const items = symbols.length ? symbols : ['BTC/USDT', 'ETH/USDT'];
+        const html = items.concat(items).map(s => {
+          const price = tickers[s] ? formatCurrency(tickers[s]) : '—';
+          return `<span class="ticker-item"><span class="ticker-symbol">${s}</span><span class="ticker-price">$${price}</span></span>`;
+        }).join('');
+        track.innerHTML = html;
       }
 
       function updatePositions(positions) {
         const tbody = document.getElementById('positionsTable');
         if (!positions || positions.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--white-dim); padding: 20px 0;">No active positions found in this session.</td></tr>`;
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--white-dim);padding:20px 0;">No active positions found in this session.</td></tr>';
           return;
         }
-
         tbody.innerHTML = positions.map(p => {
           const pnlCol = p.unrealized_pnl >= 0 ? 'var(--green)' : 'var(--red)';
           const markPrice = tickers[p.symbol] ? `$${formatCurrency(tickers[p.symbol])}` : '-';
-
-          // Conservative Liquidation Price Estimate (80% maintenance margin buffer)
-          let liqPrice = 0;
-          if (p.side === 'LONG') {
-            liqPrice = p.entry_price * (1 - (0.8 / p.leverage));
-          } else {
-            liqPrice = p.entry_price * (1 + (0.8 / p.leverage));
-          }
-
+          const liqPrice = p.side === 'LONG' ? p.entry_price * (1 - 0.8 / p.leverage) : p.entry_price * (1 + 0.8 / p.leverage);
           return `<tr>
-              <td style="font-weight: bold; color:var(--cyan);">${p.symbol}</td>
-              <td style="color:${p.side === 'LONG' ? 'var(--green)' : 'var(--red)'}">${p.side}</td>
-              <td>${p.contracts.toFixed(3)}</td>
-              <td>$${formatCurrency(p.notional)}</td>
-              <td>$${formatCurrency(p.entry_price)}</td>
-              <td>${markPrice}</td>
-              <td style="color: var(--amber);">$${formatCurrency(liqPrice)}</td>
-              <td style="color:${pnlCol}; font-weight: bold;">$${formatCurrency(p.unrealized_pnl)}</td>
-          </tr>`;
+          <td style="font-weight:bold;color:var(--cyan);">${p.symbol}</td>
+          <td style="color:${p.side === 'LONG' ? 'var(--green)' : 'var(--red)'};">${p.side}</td>
+          <td>${p.contracts.toFixed(3)}</td>
+          <td>$${formatCurrency(p.notional)}</td>
+          <td>$${formatCurrency(p.entry_price)}</td>
+          <td>${markPrice}</td>
+          <td style="color:var(--amber);">$${formatCurrency(liqPrice)}</td>
+          <td style="color:${pnlCol};font-weight:bold;">$${formatCurrency(p.unrealized_pnl)}</td>
+        </tr>`;
         }).join('');
       }
 
-      // Establish live WS socket tunnel
-      const ws = new WebSocket(`ws://${window.location.host}/ws/control`);
+      function appendDecision(decision) {
+        const list = document.getElementById('decisionList');
+        if (!list) return;
+        const placeholder = list.querySelector('.decision-item');
+        if (placeholder && placeholder.textContent.includes('Connection established')) placeholder.remove();
+        const item = document.createElement('li');
+        item.className = 'decision-item';
+        item.innerHTML = `
+        <span class="decision-time">${new Date(decision.timestamp).toLocaleTimeString()}</span>
+        <span class="decision-side ${decision.signal}">${decision.signal}</span>
+        <span class="decision-rationale"><span class="symbol">${decision.symbol}</span>${decision.rationale}<span class="conv">${decision.conviction}/10</span></span>
+      `;
+        list.insertBefore(item, list.firstChild);
+        while (list.childElementCount > 100) list.lastElementChild.remove();
+      }
 
-      ws.onopen = () => {
-        appendConsole(`<div><span class="success">[SUCCESS]</span> Connected to Drox backend workspace.</div>`);
-      };
+      let wsSocket = null;
+      let controlButtonsWired = false;
 
-      ws.onmessage = e => {
-        const data = JSON.parse(e.data);
+      function connectWS() {
+        if (authState !== 'authenticated') return;
+        const ws = new WebSocket(`${wsScheme}://${location.host}/ws/control`);
+        wsSocket = ws;
 
-        if (data.type === 'market_snapshot') {
-          updateTicker(data.data);
-        }
+        ws.onopen = () => appendConsole(`<div><span class="success">[SUCCESS]</span> Connected to Drox backend workspace.</div>`);
 
-        if (data.type === 'brain_thinking') {
-          appendConsole(`<div><span class="prompt">[BRAIN]</span> <span class="flag">Analyzing ${data.symbol}...</span></div>`);
-        }
+        ws.onmessage = (e) => {
+          let data;
+          try { data = JSON.parse(e.data); } catch (_err) { return; }
 
-        if (data.type === 'risk_rejection') {
-          appendConsole(`<div><span class="err-text">[RISK REJECTION]</span> <span style="color:var(--red);">${data.reason}</span></div>`);
-          document.getElementById('riskKilledStatus').textContent = "KILLED";
-          document.getElementById('riskKilledStatus').style.color = "var(--red)";
-        }
-
-        if (data.type === 'kill_activated') {
-          appendConsole(`<div><span class="err-text">[KILL SWITCH]</span> <span style="color:var(--red);">Emergency shutdown activated by user.</span></div>`);
-          document.getElementById('riskKilledStatus').textContent = "KILLED";
-          document.getElementById('riskKilledStatus').style.color = "var(--red)";
-        }
-
-        if (data.type === 'system_status') {
-          appendConsole(`<div><span class="prompt">[SYSTEM]</span> Autonomous trading state: <span class="flag">${data.autonomous ? 'ACTIVE' : 'DISABLED'}</span></div>`);
-        }
-
-        if (data.type === 'execution' && data.proposal) {
-          appendConsole(`<div><span class="success">[PROPOSAL]</span> Executed ${data.proposal.signal} position for ${data.proposal.symbol}. Conviction: ${data.proposal.conviction}/10. Rationale: ${data.proposal.rationale}</div>`);
-        }
-
-        if (data.type === 'portfolio_snapshot') {
-          // Update analytics cockpit cards
-          document.getElementById('cardEquity').innerHTML = `$${formatCurrency(data.data.total_equity)} <span class="unit">USDT</span>`;
-          document.getElementById('cardRiskEquity').innerHTML = `$${formatCurrency(data.data.risk_adjusted_equity)} <span class="unit">USDT</span>`;
-          document.getElementById('cardAvailableMargin').innerHTML = `$${formatCurrency(data.data.available_margin)} <span class="unit">USDT</span>`;
-          document.getElementById('cardMarginValue').textContent = `${data.data.margin_utilization.toFixed(1)}%`;
-
-          // Calculate dynamic leverage
-          const mu = data.data.margin_utilization;
-          let targetLev = 10;
-          if (mu > 80) targetLev = 1;
-          else if (mu > 60) targetLev = 2;
-          else if (mu > 40) targetLev = 3;
-          else if (mu > 20) targetLev = 5;
-          document.getElementById('cardTargetLeverage').textContent = `${targetLev}x`;
-
-          // Header stats
-          document.getElementById('sysModeStatus').textContent = data.mode.toUpperCase();
-
-          updatePositions(data.data.positions);
-
-          // Update Chart label coordinates
-          const timestamp = new Date(data.data.timestamp).toLocaleTimeString();
-          equityChart.data.labels.push(timestamp);
-          equityChart.data.datasets[0].data.push(data.data.total_equity);
-          if (equityChart.data.labels.length > 50) {
-            equityChart.data.labels.shift();
-            equityChart.data.datasets[0].data.shift();
+          if (data.type === 'market_snapshot') {
+            updateTicker(data.data);
           }
-          equityChart.update();
-        }
+          if (data.type === 'brain_thinking') {
+            appendConsole(`<div><span class="prompt">[BRAIN]</span> <span class="flag">Analyzing ${data.symbol}...</span></div>`);
+          }
+          if (data.type === 'risk_rejection') {
+            appendConsole(`<div><span class="err-text">[RISK REJECTION]</span> <span style="color:var(--red);">${data.reason}</span></div>`);
+            const r = document.getElementById('riskKilledStatus');
+            if (r) { r.textContent = 'KILLED'; r.style.color = 'var(--red)'; }
+          }
+          if (data.type === 'kill_activated') {
+            appendConsole(`<div><span class="err-text">[KILL SWITCH]</span> <span style="color:var(--red);">Emergency shutdown activated.</span></div>`);
+            const r = document.getElementById('riskKilledStatus');
+            if (r) { r.textContent = 'KILLED'; r.style.color = 'var(--red)'; }
+          }
+          if (data.type === 'system_status') {
+            appendConsole(`<div><span class="prompt">[SYSTEM]</span> Autonomous: <span class="flag">${data.autonomous ? 'ACTIVE' : 'DISABLED'}</span></div>`);
+          }
+          if (data.type === 'execution' && data.proposal) {
+            appendConsole(`<div><span class="success">[PROPOSAL]</span> ${data.proposal.signal} ${data.proposal.symbol} · Conviction ${data.proposal.conviction}/10 · ${data.proposal.rationale}</div>`);
+            appendDecision({ ...data.proposal, timestamp: data.timestamp || new Date().toISOString() });
+          }
+          if (data.type === 'portfolio_snapshot') {
+            const ce = document.getElementById('cardEquity');
+            const cre = document.getElementById('cardRiskEquity');
+            const cam = document.getElementById('cardAvailableMargin');
+            const cmv = document.getElementById('cardMarginValue');
+            if (ce) { ce.innerHTML = `$${formatCurrency(data.data.total_equity)} <span class="unit">USDT</span>`; flashValue(ce); }
+            if (cre) { cre.innerHTML = `$${formatCurrency(data.data.risk_adjusted_equity)} <span class="unit">USDT</span>`; flashValue(cre); }
+            if (cam) { cam.innerHTML = `$${formatCurrency(data.data.available_margin)} <span class="unit">USDT</span>`; flashValue(cam); }
+            if (cmv) cmv.textContent = `${data.data.margin_utilization.toFixed(1)}%`;
 
-        if (data.type !== 'market_snapshot') {
-          appendConsole(`<div><span class="comment">${new Date().toLocaleTimeString()}</span> ${JSON.stringify(data)}</div>`);
-        }
-      };
+            const mu = data.data.margin_utilization;
+            let targetLev = 10;
+            if (mu > 80) targetLev = 1;
+            else if (mu > 60) targetLev = 2;
+            else if (mu > 40) targetLev = 3;
+            else if (mu > 20) targetLev = 5;
+            const ctl = document.getElementById('cardTargetLeverage');
+            if (ctl) ctl.textContent = `${targetLev}x`;
 
-      ws.onclose = () => {
-        appendConsole(`<div><span class="err-text">[CLOSED]</span> Socket connection disconnected. Re-launch system to establish tunnel.</div>`);
-      };
+            const sms = document.getElementById('sysModeStatus');
+            if (sms) sms.textContent = (data.mode || 'PAPER').toUpperCase();
 
-      // Expose commands globally
-      window.killSwitch = () => { ws.send(JSON.stringify({ cmd: "KILL" })); };
-      window.startAuto = () => { ws.send(JSON.stringify({ cmd: "START_AUTO" })); };
-      window.stopAuto = () => { ws.send(JSON.stringify({ cmd: "STOP_AUTO" })); };
-      window.analyzeBTC = () => { ws.send(JSON.stringify({ cmd: "ANALYZE", symbol: "BTC/USDT" })); };
-      window.getReports = () => { ws.send(JSON.stringify({ cmd: "GET_REPORTS" })); };
-      window.getEvals = () => { ws.send(JSON.stringify({ cmd: "GET_EVALS" })); };
-      window.subscribe = () => {
-        const sym = document.getElementById('symbolInput').value;
-        if (sym) {
-          ws.send(JSON.stringify({ cmd: "SUBSCRIBE", symbols: [sym] }));
-          appendConsole(`<div><span class="prompt">[GATEWAY]</span> Subscribed to websocket feed: <span class="flag">${sym}</span></div>`);
-          document.getElementById('symbolInput').value = '';
+            updatePositions(data.data.positions);
+
+            if (equityChart) {
+              const ts = new Date(data.data.timestamp).toLocaleTimeString();
+              equityChart.data.labels.push(ts);
+              equityChart.data.datasets[0].data.push(data.data.total_equity);
+              if (equityChart.data.labels.length > 100) {
+                equityChart.data.labels.shift();
+                equityChart.data.datasets[0].data.shift();
+              }
+              equityChart.update('none');
+            }
+          }
+        };
+
+        ws.onclose = () => {
+          appendConsole(`<div><span class="err-text">[CLOSED]</span> Socket disconnected. Reconnecting in 3s...</div>`);
+          // Only auto-reconnect while authenticated; on session expiry/logout
+          // the socket stays closed and the login screen is shown.
+          if (authState === 'authenticated') setTimeout(connectWS, 3000);
+        };
+
+        // Wire control buttons (data-cmd) to WS once; reconnects reuse wsSocket.
+        if (!controlButtonsWired) {
+          controlButtonsWired = true;
+          document.querySelectorAll('[data-cmd]').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const cmd = btn.dataset.cmd;
+              const payload = { cmd };
+              if (cmd === 'SUBSCRIBE' || cmd === 'UNSUBSCRIBE') {
+                const sym = document.getElementById('symbolInput').value.trim();
+                if (!sym) return;
+                payload.symbols = [sym];
+                appendConsole(`<div><span class="prompt">[GATEWAY]</span> ${cmd}: <span class="flag">${sym}</span></div>`);
+                document.getElementById('symbolInput').value = '';
+              } else if (cmd === 'ANALYZE' && btn.dataset.symbol) {
+                payload.symbol = btn.dataset.symbol;
+              }
+              if (wsSocket && wsSocket.readyState === 1) wsSocket.send(JSON.stringify(payload));
+            });
+          });
         }
-      };
-      window.unsubscribe = () => {
-        const sym = document.getElementById('symbolInput').value;
-        if (sym) {
-          ws.send(JSON.stringify({ cmd: "UNSUBSCRIBE", symbols: [sym] }));
-          appendConsole(`<div><span class="prompt">[GATEWAY]</span> Unsubscribed from websocket feed: <span class="flag">${sym}</span></div>`);
-          document.getElementById('symbolInput').value = '';
-        }
-      };
+      }
+
+      // ═══════════════════════════════════════════════
+      // BOOT
+      // ═══════════════════════════════════════════════
+      navigate();
+      checkSession().then(() => {
+        if (!loginOverlay.classList.contains('hidden')) return;
+        connectWS();
+      });
 
     })();
   </script>

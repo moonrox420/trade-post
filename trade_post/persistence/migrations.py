@@ -39,13 +39,61 @@ SCHEMA_SQL = [
 ]
 
 
+VERSIONED_MIGRATIONS: list[tuple[str, list[str]]] = [
+    (
+        "0002_auth_hardening",
+        [
+            # Account lifecycle + audit hardening of the auth schema.
+            "ALTER TABLE users ADD COLUMN updated_at TEXT",
+            "ALTER TABLE users ADD COLUMN account_status TEXT NOT NULL DEFAULT 'active'",
+            "ALTER TABLE sessions ADD COLUMN revoked_at TEXT",
+            "CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)",
+            "CREATE INDEX IF NOT EXISTS idx_events_type_ts ON events(type, timestamp)",
+            "CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)",
+        ],
+    ),
+]
+
+
+async def _migration_applied(conn, migration_id: str) -> bool:
+    """Return True when a migration id is already recorded in schema_migrations."""
+    row = (await conn.execute(
+        text("SELECT 1 FROM schema_migrations WHERE id = :id"),
+        {"id": migration_id},
+    )).first()
+    return row is not None
+
+
+async def _record_migration(conn, migration_id: str) -> None:
+    await conn.execute(
+        text("INSERT OR IGNORE INTO schema_migrations(id, applied_at) VALUES(:id, :ts)"),
+        {"id": migration_id, "ts": datetime.now(timezone.utc).isoformat()},
+    )
+
+
 async def run_migrations(engine: AsyncEngine) -> None:
+    """Apply baseline schema then any pending versioned migrations.
+
+    Each versioned migration is recorded in ``schema_migrations`` and only
+    runs once. ``ALTER TABLE`` statements tolerate re-runs (SQLite reports
+    "duplicate column name", Postgres reports "already exists") so the
+    migration set stays idempotent and portable across both backends.
+    """
     async with engine.begin() as conn:
         for stmt in SCHEMA_SQL:
             await conn.execute(text(stmt))
-        # Mark schema version (single version, full schema is atomic).
-        await conn.execute(
-            text("INSERT OR IGNORE INTO schema_migrations(id, applied_at) VALUES(:id, :ts)"),
-            {"id": "0001_init", "ts": datetime.now(timezone.utc).isoformat()},
-        )
+        await _record_migration(conn, "0001_init")
+        for migration_id, statements in VERSIONED_MIGRATIONS:
+            if await _migration_applied(conn, migration_id):
+                continue
+            for stmt in statements:
+                try:
+                    await conn.execute(text(stmt))
+                except Exception as exc:  # noqa: BLE001
+                    lower = str(exc).lower()
+                    if "duplicate column" in lower or "already exists" in lower:
+                        log.debug("migration %s tolerated idempotent stmt: %s", migration_id, exc)
+                        continue
+                    raise
+            await _record_migration(conn, migration_id)
     log.info("migrations complete")
