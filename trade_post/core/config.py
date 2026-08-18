@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     exchange_api_key: str = ""
     exchange_api_secret: str = ""
     exchange_sandbox: bool = True
+    exchange_max_retries: int = Field(default=3, ge=0, le=20)
+    exchange_retry_base_sec: float = Field(default=1.0, ge=0.0, le=60.0)
 
     ollama_url: HttpUrl = HttpUrl("http://localhost:11434")
     ollama_api_key: str = ""

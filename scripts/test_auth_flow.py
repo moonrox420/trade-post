@@ -1,4 +1,5 @@
 """Quick end-to-end smoke test of the auth flow (against a running server)."""
+
 import os
 import sys
 from pathlib import Path

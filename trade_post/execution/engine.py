@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -26,6 +25,7 @@ from ..domain.models import (
 from ..market.service import MarketDataService
 from ..persistence.repository import Repository
 from ..risk.engine import RiskEngine
+from .adapters import build_adapter
 
 log = logging.getLogger(__name__)
 
@@ -39,6 +39,7 @@ class ExecutionEngine:
         self._risk = risk
         self._repo = repo
         self._lock = asyncio.Lock()
+        self._adapter = build_adapter(settings, market)
         self._paper_positions: dict = {}
         self._paper_equity: Decimal = Decimal(str(settings.paper_initial_equity))
         self._paper_balances: dict = {"USDT": self._paper_equity}
@@ -101,25 +102,29 @@ class ExecutionEngine:
                 await self._risk.record_failure()
                 log.warning("REJECTED %s: %s", intent.symbol, msg)
                 return None
+            try:
+                result = await self._adapter.send_order(
+                    client_order_id=intent.id,
+                    symbol=intent.symbol,
+                    side=intent.side,
+                    order_type=intent.type,
+                    price=intent.limit_price,
+                    quantity=self._adapter.round_quantity(intent.symbol, intent.quantity, intent.side),
+                    idempotency_key=intent.idempotency_key,
+                    snapshot=snapshot,
+                )
+            except (ExchangeError, OrderRejected) as exc:
+                await self._repo.update_order_status(order.id, OrderStatus.REJECTED, last_error=str(exc))
+                await self._risk.record_failure()
+                log.warning("REJECTED %s: %s", intent.symbol, exc)
+                return None
+            order.exchange_order_id = result.exchange_order_id
+            order.average_price = result.average_price or fill_price
+            order.filled_quantity = result.filled_quantity
+            order.status = result.status
+            order.completed_at = datetime.now(timezone.utc)
             if self._settings.is_paper and not self._settings.has_exchange_credentials:
-                order.exchange_order_id = f"paper_{uuid.uuid4().hex[:8]}"
-                order.average_price = fill_price
-                order.filled_quantity = intent.quantity
-                order.status = OrderStatus.FILLED
-                order.completed_at = datetime.now(timezone.utc)
                 self._apply_paper_fill(order)
-            else:
-                try:
-                    ex_id = await self._place_via_ccxt(intent, fill_price)
-                    order.exchange_order_id = ex_id
-                    order.average_price = fill_price
-                    order.filled_quantity = intent.quantity
-                    order.status = OrderStatus.FILLED
-                    order.completed_at = datetime.now(timezone.utc)
-                except (ExchangeError, OrderRejected) as exc:
-                    await self._repo.update_order_status(order.id, OrderStatus.REJECTED, last_error=str(exc))
-                    await self._risk.record_failure()
-                    return None
             fill = Fill(
                 order_id=order.id,
                 exchange_order_id=order.exchange_order_id or "",
@@ -197,24 +202,6 @@ class ExecutionEngine:
             equity += pos["quantity"] * pos["entry_price"]
         self._paper_equity = equity
 
-    async def _place_via_ccxt(self, intent: OrderIntent, fill_price: Decimal) -> str:
-        exch = self._market.exchange
-        if exch is None:
-            raise ExchangeError("Exchange not connected")
-        try:
-            params: dict = {}
-            r = await exch.create_order(
-                intent.symbol,
-                intent.type.value,
-                intent.side.value,
-                float(intent.quantity),
-                float(intent.limit_price) if intent.limit_price else None,
-                params,
-            )
-            return str(r.get("id", ""))
-        except Exception as exc:  # noqa: BLE001
-            raise OrderRejected(f"CCXT create_order failed: {exc}") from exc
-
     async def cancel(self, order_id: str) -> None:
         async with self._lock:
             recent = await self._repo.list_recent_orders(200)
@@ -224,11 +211,10 @@ class ExecutionEngine:
             if self._settings.is_paper and not self._settings.has_exchange_credentials:
                 await self._repo.update_order_status(order_id, OrderStatus.CANCELLED)
                 return
-            exch = self._market.exchange
-            if exch is None or not target.exchange_order_id:
-                raise ExchangeError("Exchange not connected or missing exchange id")
+            if not target.exchange_order_id:
+                raise ExchangeError("Order has no exchange order id")
             try:
-                await exch.cancel_order(target.exchange_order_id, target.symbol)
+                await self._adapter.cancel_order(target.exchange_order_id, target.symbol)
                 await self._repo.update_order_status(order_id, OrderStatus.CANCELLED)
             except Exception as exc:  # noqa: BLE001
                 raise ExchangeError(f"Cancel failed: {exc}") from exc

@@ -7,7 +7,7 @@ import urllib.request
 
 proc = subprocess.Popen(
     [sys.executable, "-m", "uvicorn", "trade_post.api.server:create_app",
-     "--factory", "--host", "127.0.0.1", "--port", "9099"],
+    "--factory", "--host", "127.0.0.1", "--port", "9099"],
     stdout=open(r"C:\Temp\srv_smoke.log", "w"),
     stderr=subprocess.STDOUT,
 )

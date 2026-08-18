@@ -6,6 +6,7 @@ password. Never hard-codes a default credential: when no password is supplied a
 one-time random password is generated and printed to the console for manual
 capture. After this, log in at the dashboard with admin / <password>.
 """
+
 import asyncio
 import secrets
 import sys
@@ -25,8 +26,7 @@ from trade_post.security.auth import hash_password
 async def main() -> None:
     settings = load_settings()
     configure_logging(settings)
-    new_password = settings.drox_admin_password or \
-        __import__("os").environ.get("DROX_ADMIN_PASSWORD")
+    new_password = settings.drox_admin_password or __import__("os").environ.get("DROX_ADMIN_PASSWORD")
     generated = False
     if not new_password:
         new_password = secrets.token_urlsafe(18)

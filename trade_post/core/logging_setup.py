@@ -12,6 +12,9 @@ from .config import Settings
 
 trace_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar("trace_id", default=None)
 
+
+_configured: bool = False
+
 _FORBIDDEN_SUBSTRINGS = (
     "api_key",
     "api-key",
@@ -70,9 +73,11 @@ class SecretScrubbingFilter(logging.Filter):
 
 
 def configure_logging(settings: Settings, log_file: Path | None = None) -> None:
+    global _configured
     root = logging.getLogger()
-    if getattr(root, "_trade_post_configured", False):
+    if _configured:
         return
+    _configured = True
     level = getattr(logging, settings.log_level.value)
     root.setLevel(level)
     formatter = logging.Formatter(
@@ -90,7 +95,6 @@ def configure_logging(settings: Settings, log_file: Path | None = None) -> None:
     root.addHandler(file_handler)
     for noisy in ("ccxt", "urllib3", "httpx", "httpcore", "asyncio"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
-    root._trade_post_configured = True
     root.info("logging configured level=%s file=%s", settings.log_level.value, log_file)
 
 

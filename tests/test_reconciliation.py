@@ -46,7 +46,7 @@ async def _insert_ledger(conn, delta, reference, balance_after) -> None:
     )
 
 
-async def _insert_fill(conn, side, qty, price, fee=0, fee_currency="USDT") -> None:
+async def _insert_fill(conn, side, qty, price, fee: str = "0", fee_currency="USDT") -> None:
     await conn.execute(
         text(
             "INSERT INTO fills"
